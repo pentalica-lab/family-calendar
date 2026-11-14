@@ -208,14 +208,20 @@
       .day-panel h2 { font-size: 1rem; font-weight: 900; margin: 0 0 8px; display: flex; align-items: baseline; gap: 8px; }
       .day-panel h2 small { color: var(--ink-2); font-weight: 700; font-size: 0.82rem; }
       .day-event {
-        display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+        display: flex; align-items: flex-start; gap: 10px; width: 100%; text-align: left;
         background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
         padding: 10px 12px; margin-bottom: 8px; min-height: 3.4rem;
       }
       .day-event .stripe { width: 5px; align-self: stretch; border-radius: 3px; flex: none; }
-      .day-event .ev-main { flex: 1; min-width: 0; }
-      .day-event .ev-title { font-weight: 700; font-size: 0.97rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .day-event .ev-meta { font-size: 0.8rem; color: var(--ink-2); margin-top: 2px; }
+      .day-event .ev-main { flex: 1 1 auto; min-width: 0; }
+      /* 下部リストのタイトルは省略せず全文表示する（長い場合は複数行に折り返す）。
+         月セルのバーの省略（.bar）は対象外で現状のまま */
+      .day-event .ev-title {
+        display: block; font-weight: 700; font-size: 0.97rem; line-height: 1.45;
+        white-space: normal; overflow: visible; text-overflow: clip;
+        overflow-wrap: anywhere; word-break: break-word;
+      }
+      .day-event .ev-meta { font-size: 0.8rem; color: var(--ink-2); margin-top: 2px; white-space: normal; overflow-wrap: anywhere; }
       .day-empty { color: var(--ink-3); font-size: 0.9rem; padding: 14px 4px; }
       .day-add {
         display: inline-flex; align-items: center; gap: 6px; color: var(--accent); font-weight: 900;
@@ -623,10 +629,15 @@
         position: absolute; top: 0; bottom: 0; z-index: 1;
         min-height: 0 !important; background: transparent; border: 0; padding: 0; margin: 0;
       }
+      /* 月セルのバーは単日でも全角5文字以上が収まる寸法にする:
+         iPhone幅(約390px)では1セル約54px。フォント0.54rem(約8.6px)＋
+         字間-0.03em＋左右パディング各2px＋バーの内側マージン合計2pxで、
+         5文字(約43px)が省略されずに入る計算 */
       .week-bars-area .bar {
         position: absolute; z-index: 2; margin: 0;
         height: 16px; max-height: 16px; line-height: 16px; min-height: 0 !important;
-        font-size: 0.62rem; font-weight: 700; padding: 0 4px; border-radius: 3px;
+        font-size: 0.54rem; font-weight: 700; padding: 0 2px; border-radius: 3px;
+        letter-spacing: -0.03em;
       }
       .week-bars-area .more-label {
         position: absolute; bottom: 0; z-index: 2;
@@ -649,29 +660,7 @@
         line-height: 1.35rem; white-space: nowrap; overflow: hidden;
         text-overflow: ellipsis; min-width: 0; flex: 1;
       }
-      /* 今日から7日のストリップ（Fantastical DayTicker簡易版） */
       .strip-wrap { max-width: 1060px; margin: 0 auto; padding: 0 6px; }
-      .week-strip {
-        display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
-        padding: 6px 2px 8px;
-      }
-      .strip-day {
-        display: flex; flex-direction: column; align-items: center; gap: 2px;
-        padding: 6px 2px 7px; border-radius: 10px; background: var(--surface-2);
-        min-height: 0 !important; min-width: 0;
-      }
-      .strip-day .sd-dow { font-size: 0.62rem; font-weight: 700; color: var(--ink-2); }
-      .strip-day.sun .sd-dow { color: var(--sun); }
-      .strip-day.sat .sd-dow { color: var(--sat); }
-      .strip-day .sd-num { font-size: 0.95rem; font-weight: 900; line-height: 1.1; }
-      .strip-day.today .sd-num {
-        background: var(--today-bg); color: #fff; border-radius: 50%;
-        width: 1.5rem; height: 1.5rem; display: inline-flex; align-items: center; justify-content: center;
-      }
-      .strip-day.selected { box-shadow: 0 0 0 2px var(--accent) inset; background: var(--accent-soft); }
-      .strip-day .sd-track { width: 70%; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
-      .strip-day .sd-fill { height: 100%; border-radius: 2px; background: var(--accent); }
-      .strip-day .sd-count { font-size: 0.6rem; font-weight: 700; color: var(--ink-2); }
       /* 表示密度の切替（Lifebear式） */
       .density-row {
         display: flex; align-items: center; gap: 6px; justify-content: flex-end;
@@ -684,14 +673,12 @@
       .day-panel { scroll-margin-top: 76px; }
       .density-btn[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
       body[data-density="compact"] .week-bars-area .bar {
-        height: 12px; max-height: 12px; line-height: 12px; font-size: 0.56rem; padding: 0 3px;
+        height: 12px; max-height: 12px; line-height: 12px; font-size: 0.5rem; padding: 0 2px;
       }
       body[data-density="compact"] .dnum { font-size: 0.72rem; min-width: 1.18rem; height: 1.18rem; }
       body[data-density="compact"] .week-days { height: 22px; }
       body[data-density="compact"] .day-cell { height: 22px; }
       body[data-density="compact"] .holiday-name { line-height: 1.15rem; }
-      body[data-density="compact"] .week-strip { padding-top: 3px; padding-bottom: 5px; }
-      body[data-density="compact"] .strip-day { padding: 4px 2px 5px; }
       /* FABは両モードとも濃い赤×白で固定（ダーク時の薄色アクセント×白は低コントラストのため） */
       .fab-center { background: #c53727 !important; color: #ffffff !important; }
       /* フォームのエラー文字: 両モードで読める濃さに */
@@ -741,6 +728,7 @@
             <h1 class="month-title" id="monthTitle">―</h1>
           </button>
           <button id="nextMonthBtn" class="nav-btn" type="button" aria-label="次の月">›</button>
+          <button id="todayBtnTop" class="today-btn" type="button">今日</button>
           <div class="spacer"></div>
           <button id="signOutBtn" class="icon-btn" type="button" aria-label="サインアウト" title="サインアウト">
             <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -751,7 +739,6 @@
       <div id="previewBanner" class="preview-banner" hidden><span>サンプルデータを表示中です（表示確認用プレビュー）</span></div>
 
       <div class="strip-wrap">
-        <div class="week-strip" id="weekStrip" aria-label="今日から7日間"></div>
         <div class="density-row"><span>表示密度</span>
           <button type="button" class="density-btn" data-density="standard" aria-pressed="true">標準</button>
           <button type="button" class="density-btn" data-density="compact" aria-pressed="false">コンパクト</button>
@@ -1597,8 +1584,8 @@
             const isAllDay = !!sg.ev.allDay;
             const barCls = "bar" + (isAllDay ? " bar-allday" : " bar-timed") + (sg.contL ? " cont-l" : "") + (sg.contR ? " cont-r" : "");
             const barStyle = isAllDay
-              ? "left:calc(" + left + "% + 1.5px);width:calc(" + width + "% - 3px);top:" + top + "px;background:" + member.chipBg + ";color:" + member.onChip
-              : "left:calc(" + left + "% + 1.5px);width:calc(" + width + "% - 3px);top:" + top + "px;background:" + member.color + "2e;box-shadow:inset 0 0 0 1px " + member.color + "59, inset 3px 0 0 " + member.color;
+              ? "left:calc(" + left + "% + 1px);width:calc(" + width + "% - 2px);top:" + top + "px;background:" + member.chipBg + ";color:" + member.onChip
+              : "left:calc(" + left + "% + 1px);width:calc(" + width + "% - 2px);top:" + top + "px;background:" + member.color + "2e;box-shadow:inset 0 0 0 1px " + member.color + "59, inset 3px 0 0 " + member.color;
             const firstKey = dateKey(addDays(weekStart, sg.s));
             const barAttrs = ' data-bar="1" data-week-start="' + wsKey + '" data-seg-s="' + sg.s + '" data-span="' + (sg.e - sg.s + 1) + '" data-day-first="' + firstKey + '"';
             html += interactive
@@ -1610,41 +1597,13 @@
         return html;
       }
 
-      /* 今日から7日のストリップ: 日付＋予定本数のバーで週の混み具合を一目で示す。
-         タップでその日を選択する（下部リストと連動） */
-      function renderWeekStrip() {
-        const host = el("weekStrip");
-        if (!host) return;
-        const today = new Date();
-        const days = [];
-        let max = 0;
-        for (let i = 0; i < 7; i++) {
-          const d = addDays(today, i);
-          const key = dateKey(d);
-          const count = eventsOn(key).length;
-          if (count > max) max = count;
-          days.push({ d: d, key: key, count: count });
-        }
-        host.innerHTML = days.map(function (it) {
-          const dow = it.d.getDay();
-          const cls = "strip-day" + (dow === 0 ? " sun" : dow === 6 ? " sat" : "")
-            + (it.key === todayKey() ? " today" : "") + (it.key === state.selectedKey ? " selected" : "");
-          const pct = max > 0 ? Math.round(it.count / max * 100) : 0;
-          return '<button type="button" class="' + cls + '" data-strip-day="' + it.key + '" aria-label="' + fmtDayLabel(it.key) + "、予定" + it.count + '件">'
-            + '<span class="sd-dow">' + WEEKDAYS[dow] + '</span>'
-            + '<span class="sd-num">' + it.d.getDate() + "</span>"
-            + '<span class="sd-track"><span class="sd-fill" style="display:block;width:' + pct + '%"></span></span>'
-            + '<span class="sd-count">' + (it.count ? it.count + "件" : "―") + "</span></button>";
-        }).join("");
-      }
-
       /* 3パネル（前月・今月・次月）を横に並べ、中央を表示する */
       function renderCalendar() {
         el("monthTitle").innerHTML = state.viewYear + "年" + (state.viewMonth + 1) + "月";
         const prev = monthShift(state.viewYear, state.viewMonth, -1);
         const next = monthShift(state.viewYear, state.viewMonth, 1);
         const track = el("calTrack");
-        if (!track) { renderWeekStrip(); renderDayPanel(); return; }
+        if (!track) { renderDayPanel(); return; }
         track.classList.remove("anim");
         track.style.transform = "translateX(-100%)";
         track.innerHTML =
@@ -1653,7 +1612,6 @@
           + '<div class="cal-panel" aria-hidden="true"><div class="calendar">' + renderMonthGrid(next.y, next.m, false) + "</div></div>";
         const cur = el("calPanelCurrent");
         if (cur) el("calViewport").style.height = cur.offsetHeight + "px";
-        renderWeekStrip();
         renderDayPanel();
       }
 
@@ -2107,6 +2065,7 @@
         el("prevMonthBtn").addEventListener("click", function () { moveMonth(-1); });
         el("nextMonthBtn").addEventListener("click", function () { moveMonth(1); });
         el("todayBtn").addEventListener("click", goToday);
+        el("todayBtnTop").addEventListener("click", goToday);
         el("monthTitleBtn").addEventListener("click", goToday);
         el("signOutBtn").addEventListener("click", function () {
           signOut();
@@ -2134,12 +2093,6 @@
             renderCalendar();
           });
         });
-        /* 7日ストリップ: タップでその日を選択し、下部リストへスクロール */
-        el("weekStrip").addEventListener("click", function (e) {
-          const day = e.target.closest("[data-strip-day]");
-          if (day && typeof selectDay === "function") selectDay(day.getAttribute("data-strip-day"), true);
-        });
-
         /* 日を選ぶ共通処理。月が違えばその月へ移動し、必要なら画面下部の
            予定リストまでスクロールする（予定そのものは下部リストから開く） */
         function selectDay(key, scrollToPanel) {
