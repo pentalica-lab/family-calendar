@@ -633,6 +633,65 @@
         font-size: 0.62rem; font-weight: 800; color: var(--ink-2);
         background: transparent; padding: 0 2px;
       }
+      /* 月表示バー: 終日は塗りつぶし（.bar-allday、色はインラインの担当色をそのまま使う）。
+         時間指定は薄い背景バー（.bar-timed、背景は担当色の薄い透過でインライン指定し、
+         文字は地色に対して読める var(--ink) に固定する） */
+      .week-bars-area .bar.bar-timed {
+        color: var(--ink) !important;
+        font-weight: 700;
+      }
+      .week-bars-area .bar.bar-timed .bar-time { opacity: 0.75; }
+      .week-bars-area .bar.bar-allday { font-weight: 800; }
+      /* 祝日名（ジョルテ式）: 日付数字の横に小さく併記。セル幅で省略し、日付とは重ねない */
+      .day-cell { gap: 3px; }
+      .holiday-name {
+        font-size: 0.54rem; font-weight: 700; color: var(--sun);
+        line-height: 1.35rem; white-space: nowrap; overflow: hidden;
+        text-overflow: ellipsis; min-width: 0; flex: 1;
+      }
+      /* 今日から7日のストリップ（Fantastical DayTicker簡易版） */
+      .strip-wrap { max-width: 1060px; margin: 0 auto; padding: 0 6px; }
+      .week-strip {
+        display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+        padding: 6px 2px 8px;
+      }
+      .strip-day {
+        display: flex; flex-direction: column; align-items: center; gap: 2px;
+        padding: 6px 2px 7px; border-radius: 10px; background: var(--surface-2);
+        min-height: 0 !important; min-width: 0;
+      }
+      .strip-day .sd-dow { font-size: 0.62rem; font-weight: 700; color: var(--ink-2); }
+      .strip-day.sun .sd-dow { color: var(--sun); }
+      .strip-day.sat .sd-dow { color: var(--sat); }
+      .strip-day .sd-num { font-size: 0.95rem; font-weight: 900; line-height: 1.1; }
+      .strip-day.today .sd-num {
+        background: var(--today-bg); color: #fff; border-radius: 50%;
+        width: 1.5rem; height: 1.5rem; display: inline-flex; align-items: center; justify-content: center;
+      }
+      .strip-day.selected { box-shadow: 0 0 0 2px var(--accent) inset; background: var(--accent-soft); }
+      .strip-day .sd-track { width: 70%; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+      .strip-day .sd-fill { height: 100%; border-radius: 2px; background: var(--accent); }
+      .strip-day .sd-count { font-size: 0.6rem; font-weight: 700; color: var(--ink-2); }
+      /* 表示密度の切替（Lifebear式） */
+      .density-row {
+        display: flex; align-items: center; gap: 6px; justify-content: flex-end;
+        padding: 0 4px 4px; font-size: 0.72rem; font-weight: 700; color: var(--ink-2);
+      }
+      .density-btn {
+        border: 1.5px solid var(--line); background: var(--surface); color: var(--ink-2);
+        border-radius: 999px; padding: 2px 12px; font-size: 0.72rem; font-weight: 800; min-height: 2rem !important;
+      }
+      .day-panel { scroll-margin-top: 76px; }
+      .density-btn[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+      body[data-density="compact"] .week-bars-area .bar {
+        height: 12px; max-height: 12px; line-height: 12px; font-size: 0.56rem; padding: 0 3px;
+      }
+      body[data-density="compact"] .dnum { font-size: 0.72rem; min-width: 1.18rem; height: 1.18rem; }
+      body[data-density="compact"] .week-days { height: 22px; }
+      body[data-density="compact"] .day-cell { height: 22px; }
+      body[data-density="compact"] .holiday-name { line-height: 1.15rem; }
+      body[data-density="compact"] .week-strip { padding-top: 3px; padding-bottom: 5px; }
+      body[data-density="compact"] .strip-day { padding: 4px 2px 5px; }
       /* FABは両モードとも濃い赤×白で固定（ダーク時の薄色アクセント×白は低コントラストのため） */
       .fab-center { background: #c53727 !important; color: #ffffff !important; }
       /* フォームのエラー文字: 両モードで読める濃さに */
@@ -691,7 +750,13 @@
 
       <div id="previewBanner" class="preview-banner" hidden><span>サンプルデータを表示中です（表示確認用プレビュー）</span></div>
 
-      <div class="legend" id="legend"></div>
+      <div class="strip-wrap">
+        <div class="week-strip" id="weekStrip" aria-label="今日から7日間"></div>
+        <div class="density-row"><span>表示密度</span>
+          <button type="button" class="density-btn" data-density="standard" aria-pressed="true">標準</button>
+          <button type="button" class="density-btn" data-density="compact" aria-pressed="false">コンパクト</button>
+        </div>
+      </div>
 
       <div class="cal-shell">
         <div class="weekday-row" aria-hidden="true">
@@ -734,6 +799,9 @@
       const GOOGLE_CLIENT_ID = "1013586111526-tlp8fdro66i4rlucj8lt0mokm91dt2ie.apps.googleusercontent.com";
       const FALLBACK_CALENDAR_ID = "family00285169980899599750@group.calendar.google.com";
       const TARGET_CALENDAR_NAME = "ファミリー カレンダー";
+      /* 祝日カレンダー（日本の祝日）の既知ID。カレンダー一覧にあればそちらを優先する。
+         太田FAM（ファミリー）カレンダーと祝日の2つを、常にまとめてデフォルト表示する。 */
+      const HOLIDAY_CALENDAR_ID = "ja.japanese#holiday@group.v.calendar.google.com";
       const SCOPES = "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly";
       /* リダイレクト方式の戻り先（GCP側に承認済みリダイレクトURIとして登録する） */
       const REDIRECT_URI = "https://pentalica-lab.github.io/family-calendar/";
@@ -753,9 +821,17 @@
         e: { key: "e", name: MEMBER_DEFAULT_LABELS.e, colorId: "6",  color: "#f4511e", chipBg: "#d63c0e", onChip: "#ffffff" }
       };
       const MEMBER_ORDER = ["a", "b", "c", "d", "e"];
+      /* 祝日用の疑似担当（担当ピッカー／絞り込みには出さず、表示色だけを持つ） */
+      const HOLIDAY_MEMBER = { key: "h", name: "祝日", colorId: "__holiday__", color: "#d93a2b", chipBg: "#d93a2b", onChip: "#ffffff" };
       const COLORID_TO_MEMBER = {};
       MEMBER_ORDER.forEach(function (k) { COLORID_TO_MEMBER[MEMBERS[k].colorId] = k; });
-      function memberOf(ev) { return COLORID_TO_MEMBER[ev.colorId] || "c"; }
+      function memberOf(ev) {
+        if (ev && ev.isHoliday) return "h";
+        return COLORID_TO_MEMBER[ev.colorId] || "c";
+      }
+      function memberStyleOf(ev) {
+        return ev && ev.isHoliday ? HOLIDAY_MEMBER : (MEMBERS[memberOf(ev)] || MEMBERS.c);
+      }
 
       /* サインイン後にのみ実行：対象カレンダーの labelProperties.eventLabels に
          含まれる「背景色→ラベル名」の対応を使い、担当スロットの表示名を復元する。
@@ -819,7 +895,7 @@
             changed = applyEventLabels(entry);
           } catch (e) { console.warn("calendarList.get for labels failed", e); }
         }
-        if (changed) { renderLegend(); renderCalendar(); }
+        if (changed) { renderCalendar(); }
       }
 
       /* ---------------- 状態 ---------------- */
@@ -828,11 +904,12 @@
         tokenExpiry: 0,
         calendarId: null,
         calendarName: "",
+        holidayCalendarId: null,
         calendarList: [],
         events: [],
         viewYear: 0, viewMonth: 0,           // viewMonth: 0-11
         selectedKey: null,                    // "YYYY-MM-DD"
-        hiddenMembers: new Set(),
+        density: "standard",
         preview: false,
         previewSeq: 0,
         deferredInstall: null
@@ -1100,24 +1177,45 @@
         return res.json();
       }
 
+      function isHolidayCalendarEntry(c) {
+        if (!c) return false;
+        const id = String(c.id || "").toLowerCase();
+        const nm = String(c.summary || "");
+        return id.indexOf("holiday") >= 0 || nm.indexOf("祝日") >= 0 || /holidays/i.test(nm);
+      }
+      function findHolidayCalendarId(list) {
+        const hit = (list || []).find(isHolidayCalendarEntry);
+        // 一覧になくても既知の祝日カレンダーIDを試す（取得できなければローカル計算で補う）
+        return hit ? hit.id : HOLIDAY_CALENDAR_ID;
+      }
+
       async function resolveCalendar() {
-        // 1) カレンダー一覧から「ファミリー カレンダー」を探す
+        // 太田FAM（ファミリー）カレンダーと祝日カレンダーを、まとめてデフォルト表示する
         let list = [];
         try {
           const data = await api("/users/me/calendarList?maxResults=250");
           list = data.items || [];
         } catch (e) { console.warn(e); }
         state.calendarList = list;
-        const found = list.find(function (c) {
-          return (c.summary || "").replace(/\s+/g, "") === TARGET_CALENDAR_NAME.replace(/\s+/g, "");
+        state.holidayCalendarId = findHolidayCalendarId(list);
+        const norm = function (s) { return String(s || "").replace(/\s+/g, ""); };
+        // 1) 一覧からファミリーカレンダーを探す（正式名／太田FAM表記の両方に対応）
+        let found = list.find(function (c) {
+          return !isHolidayCalendarEntry(c) && norm(c.summary) === norm(TARGET_CALENDAR_NAME);
         });
+        if (!found) {
+          found = list.find(function (c) {
+            const n = norm(c.summary);
+            return !isHolidayCalendarEntry(c) && (n.indexOf("太田FAM") >= 0 || n.indexOf("FAM") >= 0);
+          });
+        }
         if (found) { setCalendar(found.id, found.summary); return; }
         // 2) 既知の calendarId を試す
         try {
           const cal = await api("/users/me/calendarList/" + encodeURIComponent(FALLBACK_CALENDAR_ID));
           if (cal && cal.id) { setCalendar(cal.id, cal.summary || TARGET_CALENDAR_NAME); return; }
         } catch (e) { console.warn("fallback calendar not accessible", e); }
-        // 3) 選択UI
+        // 3) 選択UI（祝日は選んだカレンダーと常に一緒に表示される）
         if (list.length) { openCalendarPicker(list); }
         else { toast("アクセスできるカレンダーが見つかりませんでした"); showAuth(); }
       }
@@ -1125,19 +1223,22 @@
       function setCalendar(id, name) {
         state.calendarId = id;
         state.calendarName = name || "";
-        el("calNameLabel").textContent = state.calendarName || "カレンダー";
+        if (!state.holidayCalendarId) state.holidayCalendarId = HOLIDAY_CALENDAR_ID;
+        el("calNameLabel").textContent = (state.calendarName || "カレンダー") + "＋祝日";
         loadEvents();
         loadMemberLabels();
       }
 
       /* Google のイベントJSON → 内部モデル */
-      function normalizeEvent(item) {
+      function normalizeEvent(item, sourceCalendarId, isHoliday) {
         const ev = {
           id: item.id,
           title: item.summary || "（無題）",
           memo: item.description || "",
           colorId: item.colorId || null,
           htmlLink: item.htmlLink || null,
+          calendarId: sourceCalendarId || null,
+          isHoliday: !!isHoliday,
           allDay: false,
           startDate: null, endDate: null,     // 表示上の開始日・終了日（両端含む）
           startDT: null, endDT: null
@@ -1176,8 +1277,28 @@
         });
         setLoading(true);
         try {
-          const data = await api("/calendars/" + encodeURIComponent(state.calendarId) + "/events?" + qs.toString());
-          state.events = (data.items || []).map(normalizeEvent);
+          /* ファミリーカレンダーと祝日カレンダーを並行取得して1つの一覧にまとめる */
+          const sources = [{ id: state.calendarId, holiday: false }];
+          if (state.holidayCalendarId && state.holidayCalendarId !== state.calendarId) {
+            sources.push({ id: state.holidayCalendarId, holiday: true });
+          }
+          const results = await Promise.all(sources.map(async function (src) {
+            try {
+              const data = await api("/calendars/" + encodeURIComponent(src.id) + "/events?" + qs.toString());
+              return (data.items || []).map(function (item) { return normalizeEvent(item, src.id, src.holiday); });
+            } catch (e) {
+              if (src.holiday) { console.warn("holiday calendar fetch failed", e); return []; }
+              throw e;
+            }
+          }));
+          let merged = [];
+          results.forEach(function (r) { merged = merged.concat(r); });
+          const hasHoliday = merged.some(function (ev) { return ev.isHoliday; });
+          if (!hasHoliday) {
+            // 祝日カレンダーが引けない環境でも、祝日は必ず一緒に表示する
+            merged = merged.concat(synthesizedHolidayEvents(dateKey(gridStart), dateKey(gridEnd)));
+          }
+          state.events = merged;
           renderCalendar();
         } catch (e) {
           console.error(e);
@@ -1212,10 +1333,12 @@
           return;
         }
         const resource = buildEventResource(form);
+        const existingEv = existingId ? findEvent(existingId) : null;
+        const targetCalId = (existingEv && existingEv.calendarId) || state.calendarId;
         setLoading(true);
         try {
           if (existingId) {
-            await api("/calendars/" + encodeURIComponent(state.calendarId) + "/events/" + encodeURIComponent(existingId),
+            await api("/calendars/" + encodeURIComponent(targetCalId) + "/events/" + encodeURIComponent(existingId),
               { method: "PATCH", body: JSON.stringify(resource) });
             toast("予定を更新しました");
           } else {
@@ -1233,9 +1356,11 @@
           renderCalendar();
           return;
         }
+        const targetEv = findEvent(id);
+        const targetCalId2 = (targetEv && targetEv.calendarId) || state.calendarId;
         setLoading(true);
         try {
-          await api("/calendars/" + encodeURIComponent(state.calendarId) + "/events/" + encodeURIComponent(id),
+          await api("/calendars/" + encodeURIComponent(targetCalId2) + "/events/" + encodeURIComponent(id),
             { method: "DELETE" });
           toast("予定を削除しました");
           await loadEvents();
@@ -1298,15 +1423,61 @@
         return all;
       }
 
+      /* 祝日名つきマップ（日付キー→祝日名）。祝日カレンダーを取得できない場合の
+         フォールバック表示と、日付を赤くする判定の土台として使う */
+      function jpHolidayNameMap(year) {
+        const map = {};
+        [year - 1, year, year + 1].forEach(function (yy) {
+          const days = {};
+          function add(m, d, name) { days[yy + "-" + pad2(m) + "-" + pad2(d)] = name; }
+          function nthMonday(m, n) {
+            const first = new Date(yy, m - 1, 1);
+            return 1 + ((8 - first.getDay()) % 7) + (n - 1) * 7;
+          }
+          add(1, 1, "元日"); add(2, 11, "建国記念の日"); add(2, 23, "天皇誕生日");
+          add(4, 29, "昭和の日"); add(5, 3, "憲法記念日"); add(5, 4, "みどりの日"); add(5, 5, "こどもの日");
+          add(8, 11, "山の日"); add(11, 3, "文化の日"); add(11, 23, "勤労感謝の日");
+          add(1, nthMonday(1, 2), "成人の日"); add(7, nthMonday(7, 3), "海の日");
+          add(9, nthMonday(9, 3), "敬老の日"); add(10, nthMonday(10, 2), "スポーツの日");
+          add(3, Math.floor(20.8431 + 0.242194 * (yy - 1980) - Math.floor((yy - 1980) / 4)), "春分の日");
+          add(9, Math.floor(23.2488 + 0.242194 * (yy - 1980) - Math.floor((yy - 1980) / 4)), "秋分の日");
+          Object.keys(days).forEach(function (k) {
+            const d = parseKey(k);
+            if (d.getDay() === 0) {
+              let n = addDays(d, 1);
+              while (days[dateKey(n)]) n = addDays(n, 1);
+              days[dateKey(n)] = "振替休日";
+            }
+          });
+          for (let d = new Date(yy, 0, 1); d.getFullYear() === yy; d = addDays(d, 1)) {
+            const k = dateKey(d);
+            if (!days[k] && days[dateKey(addDays(d, -1))] && days[dateKey(addDays(d, 1))]) days[k] = "国民の休日";
+          }
+          Object.keys(days).forEach(function (k) { if (!map[k]) map[k] = days[k]; });
+        });
+        return map;
+      }
+      /* 範囲内の祝日を内部モデル（終日・読み取り専用）として合成する */
+      function synthesizedHolidayEvents(fromKey, toKeyExclusive) {
+        const names = jpHolidayNameMap(parseKey(fromKey).getFullYear());
+        return Object.keys(names).filter(function (k) { return k >= fromKey && k < toKeyExclusive; })
+          .sort().map(function (k) {
+            return {
+              id: "holiday-" + k, title: names[k], memo: "", colorId: null, htmlLink: null,
+              calendarId: state.holidayCalendarId || HOLIDAY_CALENDAR_ID, isHoliday: true,
+              allDay: true, startDate: k, endDate: k, startDT: null, endDT: null
+            };
+          });
+      }
+
       function gridStartDate(y, m) {
         const first = new Date(y, m, 1);
         return addDays(first, -first.getDay()); // 日曜始まり
       }
 
+      /* 担当での絞り込みはしない。全員の予定を常に表示する */
       function visibleEvents() {
-        return state.events.filter(function (ev) {
-          return !state.hiddenMembers.has(memberOf(ev));
-        });
+        return state.events.slice();
       }
 
       function eventsOn(key) {
@@ -1321,10 +1492,17 @@
         });
       }
 
+      function lanePitch() { return state.density === "compact" ? 14 : 18; }
+
       function renderMonthGrid(y, m, interactive) {
         const start = gridStartDate(y, m);
         const holidays = jpHolidayKeys(y);
+        const holidayNames = jpHolidayNameMap(y);
         const events = visibleEvents();
+        /* 祝日カレンダーから取得できた実名があれば、計算名より優先して併記する */
+        events.forEach(function (ev) {
+          if (ev.isHoliday && ev.startDate) holidayNames[ev.startDate] = ev.title;
+        });
         let html = "";
         for (let w = 0; w < 6; w++) {
           const weekStart = addDays(start, w * 7);
@@ -1372,7 +1550,7 @@
           }
           /* バー置き場の高さ = レーン(18px×段数) + 他○件行(15px・ある週のみ) + 余白2px。
              日付行(26px)は通常フローで別ブロックに確保するため、バーは構造的に日付へ重ならない */
-          const barsH = segs.length === 0 ? 6 : laneCount * 18 + (weekHasOverflow ? 15 : 2);
+          const barsH = segs.length === 0 ? 6 : laneCount * lanePitch() + (weekHasOverflow ? 15 : 2);
 
           html += '<div class="week"><div class="week-days">';
           for (let d = 0; d < 7; d++) {
@@ -1386,7 +1564,9 @@
             if (holidays.has(key)) cls.push("holiday");
             if (key === todayKey()) cls.push("today");
             if (key === state.selectedKey) cls.push("selected");
-            const cellInner = '<span class="dnum">' + day.getDate() + "</span>";
+            const hName = holidayNames[key];
+            const cellInner = '<span class="dnum">' + day.getDate() + "</span>"
+              + (hName ? '<span class="holiday-name">' + esc(hName) + "</span>" : "");
             html += interactive
               ? '<button type="button" class="' + cls.join(" ") + '" data-day="' + key + '" aria-label="' + fmtDayLabel(key) + '">' + cellInner + "</button>"
               : '<div class="' + cls.join(" ") + '" aria-hidden="true">' + cellInner + "</div>";
@@ -1407,21 +1587,55 @@
             }
           }
           drawn.forEach(function (sg) {
-            const member = MEMBERS[memberOf(sg.ev)];
+            const member = memberStyleOf(sg.ev);
             const left = (sg.s / 7 * 100);
             const width = ((sg.e - sg.s + 1) / 7 * 100);
-            const top = sg.lane * 18;
+            const top = sg.lane * lanePitch();
             const timeLabel = (!sg.ev.allDay && sg.ev.startDT && !sg.contL && (sg.e - sg.s) >= 1)
               ? '<span class="bar-time">' + fmtTime(sg.ev.startDT) + "</span>" : "";
-            const barCls = "bar" + (sg.contL ? " cont-l" : "") + (sg.contR ? " cont-r" : "");
-            const barStyle = "left:calc(" + left + "% + 1.5px);width:calc(" + width + "% - 3px);top:" + top + "px;background:" + member.chipBg + ";color:" + member.onChip;
+            /* 終日＝担当色で塗りつぶし／時間指定＝担当色の薄い背景バー（文字はインク色） */
+            const isAllDay = !!sg.ev.allDay;
+            const barCls = "bar" + (isAllDay ? " bar-allday" : " bar-timed") + (sg.contL ? " cont-l" : "") + (sg.contR ? " cont-r" : "");
+            const barStyle = isAllDay
+              ? "left:calc(" + left + "% + 1.5px);width:calc(" + width + "% - 3px);top:" + top + "px;background:" + member.chipBg + ";color:" + member.onChip
+              : "left:calc(" + left + "% + 1.5px);width:calc(" + width + "% - 3px);top:" + top + "px;background:" + member.color + "2e;box-shadow:inset 0 0 0 1px " + member.color + "59, inset 3px 0 0 " + member.color;
+            const firstKey = dateKey(addDays(weekStart, sg.s));
+            const barAttrs = ' data-bar="1" data-week-start="' + wsKey + '" data-seg-s="' + sg.s + '" data-span="' + (sg.e - sg.s + 1) + '" data-day-first="' + firstKey + '"';
             html += interactive
-              ? '<button type="button" class="' + barCls + '" data-event="' + esc(sg.ev.id) + '" style="' + barStyle + '" title="' + esc(sg.ev.title) + '">' + timeLabel + esc(sg.ev.title) + "</button>"
+              ? '<button type="button" class="' + barCls + '"' + barAttrs + ' style="' + barStyle + '" title="' + esc(sg.ev.title) + '" aria-label="' + esc(fmtDayLabel(firstKey)) + 'を表示">' + timeLabel + esc(sg.ev.title) + "</button>"
               : '<span class="' + barCls + '" style="' + barStyle + '" aria-hidden="true">' + timeLabel + esc(sg.ev.title) + "</span>";
           });
           html += "</div></div>";
         }
         return html;
+      }
+
+      /* 今日から7日のストリップ: 日付＋予定本数のバーで週の混み具合を一目で示す。
+         タップでその日を選択する（下部リストと連動） */
+      function renderWeekStrip() {
+        const host = el("weekStrip");
+        if (!host) return;
+        const today = new Date();
+        const days = [];
+        let max = 0;
+        for (let i = 0; i < 7; i++) {
+          const d = addDays(today, i);
+          const key = dateKey(d);
+          const count = eventsOn(key).length;
+          if (count > max) max = count;
+          days.push({ d: d, key: key, count: count });
+        }
+        host.innerHTML = days.map(function (it) {
+          const dow = it.d.getDay();
+          const cls = "strip-day" + (dow === 0 ? " sun" : dow === 6 ? " sat" : "")
+            + (it.key === todayKey() ? " today" : "") + (it.key === state.selectedKey ? " selected" : "");
+          const pct = max > 0 ? Math.round(it.count / max * 100) : 0;
+          return '<button type="button" class="' + cls + '" data-strip-day="' + it.key + '" aria-label="' + fmtDayLabel(it.key) + "、予定" + it.count + '件">'
+            + '<span class="sd-dow">' + WEEKDAYS[dow] + '</span>'
+            + '<span class="sd-num">' + it.d.getDate() + "</span>"
+            + '<span class="sd-track"><span class="sd-fill" style="display:block;width:' + pct + '%"></span></span>'
+            + '<span class="sd-count">' + (it.count ? it.count + "件" : "―") + "</span></button>";
+        }).join("");
       }
 
       /* 3パネル（前月・今月・次月）を横に並べ、中央を表示する */
@@ -1430,7 +1644,7 @@
         const prev = monthShift(state.viewYear, state.viewMonth, -1);
         const next = monthShift(state.viewYear, state.viewMonth, 1);
         const track = el("calTrack");
-        if (!track) { renderDayPanel(); return; }
+        if (!track) { renderWeekStrip(); renderDayPanel(); return; }
         track.classList.remove("anim");
         track.style.transform = "translateX(-100%)";
         track.innerHTML =
@@ -1439,6 +1653,7 @@
           + '<div class="cal-panel" aria-hidden="true"><div class="calendar">' + renderMonthGrid(next.y, next.m, false) + "</div></div>";
         const cur = el("calPanelCurrent");
         if (cur) el("calViewport").style.height = cur.offsetHeight + "px";
+        renderWeekStrip();
         renderDayPanel();
       }
 
@@ -1522,7 +1737,7 @@
           return;
         }
         el("dayEventList").innerHTML = list.map(function (ev) {
-          const member = MEMBERS[memberOf(ev)];
+          const member = memberStyleOf(ev);
           let meta;
           if (ev.allDay) {
             meta = ev.startDate === ev.endDate ? "終日" : fmtDayLabel(ev.startDate) + " 〜 " + fmtDayLabel(ev.endDate);
@@ -1536,15 +1751,6 @@
             + '<span class="ev-main"><span class="ev-title">' + esc(ev.title) + "</span>"
             + '<span class="ev-meta" style="display:block">' + esc(meta) + "</span></span>"
             + "</button>";
-        }).join("");
-      }
-
-      function renderLegend() {
-        el("legend").innerHTML = MEMBER_ORDER.map(function (k) {
-          const mb = MEMBERS[k];
-          const off = state.hiddenMembers.has(k) ? " off" : "";
-          return '<button type="button" class="legend-chip' + off + '" data-member="' + k + '" aria-pressed="' + (!state.hiddenMembers.has(k)) + '">'
-            + '<i style="background:' + mb.color + '"></i>' + esc(mb.name) + "</button>";
         }).join("");
       }
 
@@ -1565,7 +1771,7 @@
       function openEventDetail(id) {
         const ev = findEvent(id);
         if (!ev) return;
-        const member = MEMBERS[memberOf(ev)];
+        const member = memberStyleOf(ev);
         let when;
         if (ev.allDay) {
           when = ev.startDate === ev.endDate
@@ -1584,11 +1790,12 @@
           + (ev.htmlLink ? '<a class="sheet-link" href="' + esc(ev.htmlLink) + '" target="_blank" rel="noopener">Googleカレンダーで開く</a>' : "")
           + '<div class="sheet-actions">'
           + '<button type="button" class="btn btn-ghost" id="detailCloseBtn">閉じる</button>'
-          + '<button type="button" class="btn btn-danger" id="detailDeleteBtn">削除</button>'
-          + '<button type="button" class="btn btn-primary" id="detailEditBtn">編集</button>'
+          + (ev.isHoliday ? "" : '<button type="button" class="btn btn-danger" id="detailDeleteBtn">削除</button>'
+          + '<button type="button" class="btn btn-primary" id="detailEditBtn">編集</button>')
           + "</div>"
         );
         el("detailCloseBtn").addEventListener("click", closeSheet);
+        if (ev.isHoliday) return;
         el("detailEditBtn").addEventListener("click", function () { openEventForm(ev); });
         const delBtn = el("detailDeleteBtn");
         delBtn.addEventListener("click", async function () {
@@ -1607,10 +1814,15 @@
         const isEdit = !!ev;
         const base = ev || {};
         const startDate = isEdit ? base.startDate : (presetDateKey || state.selectedKey || todayKey());
-        const endDate = isEdit ? base.endDate : startDate;
         const allDay = isEdit ? base.allDay : true;
-        const startTime = isEdit && base.startDT ? fmtTime(base.startDT) : "10:00";
-        const endTime = isEdit && base.endDT ? fmtTime(base.endDT) : "11:00";
+        /* 新規作成のデフォルト時刻: 直近の丸い時刻（次の正時）から1時間 */
+        const defStart = new Date();
+        defStart.setMinutes(0, 0, 0);
+        if (defStart.getTime() <= Date.now()) defStart.setHours(defStart.getHours() + 1);
+        const defEnd = new Date(defStart.getTime() + 60 * 60 * 1000);
+        const startTime = isEdit && base.startDT ? fmtTime(base.startDT) : fmtTime(defStart);
+        const endTime = isEdit && base.endDT ? fmtTime(base.endDT) : fmtTime(defEnd);
+        const endDate = isEdit ? base.endDate : startDate;
         const currentMember = isEdit ? memberOf(base) : "c";
 
         const memberChips = MEMBER_ORDER.map(function (k) {
@@ -1631,11 +1843,11 @@
           + '<label class="switch"><input type="checkbox" id="fAllDay" ' + (allDay ? "checked" : "") + ' /><span class="track"></span></label></div></div>'
           + '<div class="f-row"><span class="f-name">開始</span><div class="f-body">'
           + '<input class="dt-input" id="fStartDate" type="date" value="' + esc(startDate) + '" aria-label="開始日" />'
-          + '<span class="f-time-wrap"><input class="dt-input" id="fStartTime" type="time" value="' + startTime + '" aria-label="開始時刻" /></span>'
+          + '<span class="f-time-wrap"><input class="dt-input" id="fStartTime" type="time" value="' + startTime + '" aria-label="開始時刻" title="ダブルタップで数字を直接入力できます" /></span>'
           + "</div></div>"
           + '<div class="f-row"><span class="f-name">終了</span><div class="f-body">'
           + '<input class="dt-input" id="fEndDate" type="date" value="' + esc(endDate) + '" aria-label="終了日" />'
-          + '<span class="f-time-wrap"><input class="dt-input" id="fEndTime" type="time" value="' + endTime + '" aria-label="終了時刻" /></span>'
+          + '<span class="f-time-wrap"><input class="dt-input" id="fEndTime" type="time" value="' + endTime + '" aria-label="終了時刻" title="ダブルタップで数字を直接入力できます" /></span>'
           + "</div></div>"
           + '<button type="button" class="details-toggle" id="fDetailsToggle" aria-expanded="' + (isEdit && base.memo ? "true" : "false") + '"><span>詳細（場所・メモ）</span><span aria-hidden="true" id="fDetailsChevron">' + (isEdit && base.memo ? "▴" : "▾") + "</span></button>"
           + '<div class="memo-area" id="fMemoWrap"' + (isEdit && base.memo ? "" : " hidden") + '><textarea class="form-textarea" id="fMemo" placeholder="場所や持ち物など">' + esc(isEdit ? base.memo : "") + "</textarea></div>"
@@ -1650,6 +1862,61 @@
         }
         syncTimeFields();
         el("fAllDay").addEventListener("change", syncTimeFields);
+
+        /* 開始をずらしたら終了も同じだけずらす（予定の長さを維持する）。
+           1時間の予定は1時間のまま、30分の予定は30分のまま移動する。
+           終日予定では日単位で同じだけずれる */
+        function readDT(dateId, timeId) {
+          const dv = el(dateId).value;
+          if (!dv) return null;
+          const tv = el("fAllDay").checked ? "00:00" : (el(timeId).value || "00:00");
+          const d = new Date(dv + "T" + tv + ":00");
+          return isNaN(d.getTime()) ? null : d;
+        }
+        let lastStartDT = readDT("fStartDate", "fStartTime");
+        function onStartChanged() {
+          const newStart = readDT("fStartDate", "fStartTime");
+          if (newStart && lastStartDT) {
+            const delta = newStart.getTime() - lastStartDT.getTime();
+            if (delta !== 0) {
+              const curEnd = readDT("fEndDate", "fEndTime");
+              if (curEnd) {
+                const shifted = new Date(curEnd.getTime() + delta);
+                el("fEndDate").value = dateKey(shifted);
+                if (!el("fAllDay").checked) el("fEndTime").value = fmtTime(shifted);
+              }
+            }
+          }
+          lastStartDT = readDT("fStartDate", "fStartTime");
+        }
+        el("fStartDate").addEventListener("change", onStartChanged);
+        el("fStartTime").addEventListener("change", onStartChanged);
+        el("fAllDay").addEventListener("change", function () {
+          lastStartDT = readDT("fStartDate", "fStartTime");
+          /* 終日→時間指定に切り替えた直後、終了が開始以下（深夜またぎの
+             デフォルト等）なら「開始＋1時間」に直して長さを保つ */
+          if (!el("fAllDay").checked) {
+            const s = readDT("fStartDate", "fStartTime");
+            const e = readDT("fEndDate", "fEndTime");
+            if (s && e && e.getTime() <= s.getTime()) {
+              const fixed = new Date(s.getTime() + 60 * 60 * 1000);
+              el("fEndDate").value = dateKey(fixed);
+              el("fEndTime").value = fmtTime(fixed);
+            }
+          }
+        });
+
+        /* 時刻欄のダブルタップで数字を直接入力できるようにする（ピッカーを開きつつ
+           キーボード入力へフォーカスを移す） */
+        ["fStartTime", "fEndTime"].forEach(function (id) {
+          const inp = el(id);
+          if (!inp) return;
+          inp.addEventListener("dblclick", function () {
+            inp.focus();
+            try { inp.select(); } catch (e) {}
+            if (typeof inp.showPicker === "function") { try { inp.showPicker(); } catch (e) {} }
+          });
+        });
         el("fDetailsToggle").addEventListener("click", function () {
           const wrap = el("fMemoWrap");
           const open = wrap.hidden;
@@ -1676,8 +1943,8 @@
             allDay: el("fAllDay").checked,
             startDate: el("fStartDate").value,
             endDate: el("fEndDate").value,
-            startTime: el("fStartTime").value || "10:00",
-            endTime: el("fEndTime").value || "11:00",
+            startTime: el("fStartTime").value || startTime,
+            endTime: el("fEndTime").value || endTime,
             memo: el("fMemo").value
           };
           const errEl = el("formError");
@@ -1732,7 +1999,6 @@
         el("bootScreen").hidden = true;
         el("authScreen").hidden = false;
         el("appScreen").hidden = true;
-        el("legend").innerHTML = "";
         el("calTrack").innerHTML = "";
         el("dayEventList").innerHTML = "";
         if (msg) toast(msg);
@@ -1741,7 +2007,6 @@
         el("bootScreen").hidden = true;
         el("authScreen").hidden = true;
         el("appScreen").hidden = false;
-        renderLegend();
         renderCalendar();
       }
       function onSignedIn() {
@@ -1790,6 +2055,12 @@
           mk("pv9", "結婚式に出席", "b", -6, -4, true),
           mk("pv10", "週末キャンプ", "e", 3, 5, true)
         ];
+        /* 祝日カレンダーが合体表示される様子（終日・赤の塗りつぶし） */
+        state.events.push({
+          id: "pvH", title: "祝日", memo: "", colorId: null, htmlLink: null,
+          calendarId: HOLIDAY_CALENDAR_ID, isHoliday: true, allDay: true,
+          startDate: dk(1), endDate: dk(1), startDT: null, endDT: null
+        });
         state.selectedKey = dateKey(t);
       }
 
@@ -1852,28 +2123,71 @@
         el("fab").addEventListener("click", function () { openEventForm(null, state.selectedKey); });
         el("dayAddBtn").addEventListener("click", function () { openEventForm(null, state.selectedKey); });
 
-        el("legend").addEventListener("click", function (e) {
-          const chip = e.target.closest("[data-member]");
-          if (!chip) return;
-          const k = chip.getAttribute("data-member");
-          if (state.hiddenMembers.has(k)) state.hiddenMembers.delete(k); else state.hiddenMembers.add(k);
-          renderLegend(); renderCalendar();
+        /* 表示密度（標準／コンパクト）の切替 */
+        document.querySelectorAll(".density-btn").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            state.density = btn.getAttribute("data-density") || "standard";
+            document.body.setAttribute("data-density", state.density);
+            document.querySelectorAll(".density-btn").forEach(function (b) {
+              b.setAttribute("aria-pressed", String(b === btn));
+            });
+            renderCalendar();
+          });
         });
+        /* 7日ストリップ: タップでその日を選択し、下部リストへスクロール */
+        el("weekStrip").addEventListener("click", function (e) {
+          const day = e.target.closest("[data-strip-day]");
+          if (day && typeof selectDay === "function") selectDay(day.getAttribute("data-strip-day"), true);
+        });
+
+        /* 日を選ぶ共通処理。月が違えばその月へ移動し、必要なら画面下部の
+           予定リストまでスクロールする（予定そのものは下部リストから開く） */
+        function selectDay(key, scrollToPanel) {
+          state.selectedKey = key;
+          const d = parseKey(key);
+          const monthChanged = d.getMonth() !== state.viewMonth || d.getFullYear() !== state.viewYear;
+          if (monthChanged) {
+            state.viewYear = d.getFullYear(); state.viewMonth = d.getMonth();
+            renderCalendar();
+            if (!state.preview) loadEvents();
+          } else { renderCalendar(); }
+          if (scrollToPanel) {
+            setTimeout(function () {
+              const panel = document.querySelector(".day-panel");
+              if (panel) panel.scrollIntoView({ behavior: "smooth", block: "start" });
+            }, 60);
+          }
+        }
+        /* バーのクリック位置から、その列の日付を求める（複数日バーでも押した日へ飛ぶ） */
+        function dayKeyFromBar(bar, evt) {
+          const ws = bar.getAttribute("data-week-start");
+          const first = bar.getAttribute("data-day-first");
+          if (!ws) return first;
+          const s = parseInt(bar.getAttribute("data-seg-s") || "0", 10);
+          const span = Math.max(1, parseInt(bar.getAttribute("data-span") || "1", 10));
+          let offset = s;
+          if (evt && typeof evt.clientX === "number" && evt.clientX > 0) {
+            const rect = bar.getBoundingClientRect();
+            if (rect.width > 0) {
+              const ratio = (evt.clientX - rect.left) / rect.width;
+              offset = s + Math.min(span - 1, Math.max(0, Math.floor(ratio * span)));
+            }
+          }
+          return dateKey(addDays(parseKey(ws), offset));
+        }
 
         el("calViewport").addEventListener("click", function (e) {
           if (state._suppressClick) return;
-          const bar = e.target.closest("[data-event]");
-          if (bar) { openEventDetail(bar.getAttribute("data-event")); return; }
-          const cell = e.target.closest("[data-day]");
-          if (cell) {
-            const key = cell.getAttribute("data-day");
-            state.selectedKey = key;
-            const d = parseKey(key);
-            if (d.getMonth() !== state.viewMonth) {
-              state.viewYear = d.getFullYear(); state.viewMonth = d.getMonth();
-              if (state.preview) renderCalendar(); else loadEvents();
-            } else { renderCalendar(); }
+          /* 月表示の予定バーからは予定を直接開かない。まずその日へ飛び、
+             予定は画面下部のリストから開く */
+          const bar = e.target.closest("[data-bar]");
+          if (bar) {
+            const key = dayKeyFromBar(bar, e);
+            if (key) selectDay(key, true);
+            return;
           }
+          const cell = e.target.closest("[data-day]");
+          if (cell) selectDay(cell.getAttribute("data-day"), false);
         });
         el("dayEventList").addEventListener("click", function (e) {
           const item = e.target.closest("[data-event]");
