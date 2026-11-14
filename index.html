@@ -71,6 +71,13 @@
       input:not([type="checkbox"], [type="radio"]) { min-height: 2.25rem; }
       [hidden] { display: none !important; }
 
+      .boot-wrap {
+        min-height: 100dvh; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 20px;
+        padding: 32px 22px; text-align: center;
+        color: var(--ink-2); font-weight: 700; font-size: 0.95rem;
+      }
+
       /* ---------- サインイン画面 ---------- */
       .auth-wrap {
         min-height: 100dvh; display: flex; flex-direction: column;
@@ -430,11 +437,45 @@
         font-size: 0.95rem; line-height: 1.6;
       }
       .detail-row .dr-name { flex: 0 0 3.4em; font-size: 0.85rem; font-weight: 900; color: var(--ink-2); padding-top: 2px; }
+
+      /* =====================================================
+         コントラスト修正（白地に白文字・薄すぎる文字の排除）
+         ===================================================== */
+      /* 日時入力：iPhoneのダークモードでも必ず読めるよう、
+         ライトな固定色＋color-scheme: light でネイティブ表示も含めて固定する */
+      .dt-input {
+        color-scheme: light;
+        background: #f5f3f0;
+        color: #2b2622;
+        border: 1px solid #ddd6cf;
+      }
+      .dt-input::-webkit-calendar-picker-indicator { opacity: 0.65; }
+      .form-input, .form-textarea { color-scheme: light dark; }
+      /* 補助テキスト類は一段濃い色にする */
+      .more-label { color: var(--ink-2); }
+      .install-help { color: var(--ink-2); }
+      .day-empty { color: var(--ink-2); }
+      .picker-item .p-role { color: var(--ink-2); }
+      .day-cell.other-month .dnum { color: var(--ink-2); }
+      .cal-switch { color: var(--ink); }
+      /* リンク色：白背景でも読める濃さに（ダーク時は明るく） */
+      .sheet-link { color: #0277bd; }
+      @media (prefers-color-scheme: dark) {
+        .sheet-link { color: #6fc3ee; }
+      }
+      /* 詳細チップの既定文字色は濃色に（実際の色はインライン指定が優先） */
+      .detail-chip { color: #2b2622; }
     </style>
   </head>
   <body>
+    <!-- ============ 起動中（保存トークン確認中） ============ -->
+    <div id="bootScreen" class="boot-wrap">
+      <img class="auth-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAYAAAD0eNT6AAAVWUlEQVR4nO3dTY4cVRYG0ChUE9RswJZaDNkGA1bQa/AKWp5aCHlqsQKvgRUwYBsMUUv2BkBMLFUPrDRZVZkZf+/nvrjnTF2VeSsqiO9776XN3URIDw8PD71nACjh7u7urvcMPOeX0omAB/hMQejDRW9A2AOsoxTU5wJXIPABylIIynNBCxD4AG0pBPu5gBsJfYAYlIFtXLQVhD5AbMrAci7UDKEPMCZl4DYX5wrBD3AMisBlLsoZoQ9wbMrAP1yISfADZKMIJC8Agh8gt8xFIOUPLvgBOJexCKT6gQU/ALdkKgIpflDBD8AaGYrAV70HqE34A7BWhuw4bMPJ8MsDoL6j7gYc7ocS/ADUcLQicKgjAOEPQC1Hy5hDtJmj/VIAiO0IuwHD7wAIfwBaO0L2DF0AjvALAGBMo2fQkFsYo190AI5lxCOB4XYAhD8A0YyYTUMVgBEvMAA5jJZRQ2xZjHZRAchthCOB8DsAwh+A0YyQXaELwAgXEAAuiZ5hYQtA9AsHAHMiZ1nIAhD5ggHAGlEzLVwBiHqhAGCriNkWqgBEvEAAUEK0jAtTAKJdGAAoLVLWhSgAkS4IANQUJfO6F4AoFwIAWomQfV0LQIQLAAA99M7AbgWg9w8OAL31zMIuBUD4A8BnvTKxeQEQ/gDwWI9sbFoAhD8AXNY6I5sVAOEPALe1zMomBUD4A8AyrTKz+78DAAC0V70AWP0DwDotsrNqARD+ALBN7QytVgCEPwDsUzNLfQYAABKqUgCs/gGgjFqZWrwACH8AKKtGthYtAMIfAOoonbE+AwAACRUrAFb/AFBXyawtUgCEPwC0USpzHQEAQEK7C4DVPwC0VSJ77QAAQEK7CoDVPwD0sTeDNxcA4Q8Afe3JYkcAAJDQpgJg9Q8AMWzNZDsAAJDQ6gJg9Q8AsWzJZjsAAJDQqgJg9Q8AMa3NaDsAAJDQ4gJg9Q8Asa3J6vuag8Cc+/cfrv7Zp1cvG04CdbjHiepuyRdZ/VParYfiUx6SjMg9Tk93d3ez+a4A0NSah+JTHpKMwD1OBEsKgA8B0syeB2OJ74fa3OOMZLYAWP1TQqkHmwckUbnHiWRJdtsBoLrSDzQPSKJxjzOimwXA6h8AxjSX4XYAqKrWSsYKiSjc44xKAQCAhK4WANv/7FV7BWOFRG/ucaK7leV2AAAgIQUAABK6WABs/wPAMVzLdDsAAJCQAgAACT0rALb/AeBYLmW7HQAASEgBAICEFAAASOhRAXD+DwDH9DTj7QAAQEIKAAAkpAAAQEJfCoDzfwA4tvOstwMAAAkpAACQkAIAAAkpAACQ0FfT5AOAAJDFKfPtAABAQgoAACSkAABAQgoAACSkAABAQgoAACSkAABAQnf+DYAxfHzzuvcIq/372/9Wf4///fFz9feAa9zj1714+673CMy47z0Al40Y+AAnT59hCkE8CkAwgh84otOzTRGIQwEIQOgDWZw/75SBvnwIsDPhD2Tl+deXHYBO3PgAjgZ6sgPQgfAHeMxzsT0FoDE3OcBlno9tKQANubkBbvOcbEcBaMRNDbCM52UbCkADbmaAdTw361MAKnMTA2zj+VmXAlCRmxdgH8/RehSASty0AGV4ntahAABAQgpABdoqQFmeq+UpAIW5SQHq8HwtSwEAgIQUAABISAEoyPYUQF2es+UoAACQkAJQiFYK0IbnbRkKAAAkpAAAQEIKAAAkpAAU4DwKoC3P3f0UAABISAEAgIQUAKr53x8/D/36MMc9zsgUAABISAGgqlorGCsjonCPMyoFAAASUgCorvRKxsqIaNzjjEgBoIlSDzQPRqJyjzMaBYBm9j7YPBiJzj3OSO57D0Aupwfcv7/97+rvgRG4xxmFAkAXSx6SHoqMzD1OdAoAXXkAcnTucaLyGQAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASOi+9wBH9uLtu94jAAzv45vXvUc4JDsAAJCQAgAACSkAAJCQAgAACSkAAJCQAgAACSkAAJCQAgAACSkAAJCQAgAACSkAAJCQAgAACSkAAJCQAgAACSkAAJCQAgAA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" alt="" />
+      <p>読み込み中…</p>
+    </div>
+
     <!-- ============ サインイン画面 ============ -->
-    <div id="authScreen" class="auth-wrap">
+    <div id="authScreen" class="auth-wrap" hidden>
       <img class="auth-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAYAAAD0eNT6AAAVWUlEQVR4nO3dTY4cVRYG0ChUE9RswJZaDNkGA1bQa/AKWp5aCHlqsQKvgRUwYBsMUUv2BkBMLFUPrDRZVZkZf+/nvrjnTF2VeSsqiO9776XN3URIDw8PD71nACjh7u7urvcMPOeX0omAB/hMQejDRW9A2AOsoxTU5wJXIPABylIIynNBCxD4AG0pBPu5gBsJfYAYlIFtXLQVhD5AbMrAci7UDKEPMCZl4DYX5wrBD3AMisBlLsoZoQ9wbMrAP1yISfADZKMIJC8Agh8gt8xFIOUPLvgBOJexCKT6gQU/ALdkKgIpflDBD8AaGYrAV70HqE34A7BWhuw4bMPJ8MsDoL6j7gYc7ocS/ADUcLQicKgjAOEPQC1Hy5hDtJmj/VIAiO0IuwHD7wAIfwBaO0L2DF0AjvALAGBMo2fQkFsYo190AI5lxCOB4XYAhD8A0YyYTUMVgBEvMAA5jJZRQ2xZjHZRAchthCOB8DsAwh+A0YyQXaELwAgXEAAuiZ5hYQtA9AsHAHMiZ1nIAhD5ggHAGlEzLVwBiHqhAGCriNkWqgBEvEAAUEK0jAtTAKJdGAAoLVLWhSgAkS4IANQUJfO6F4AoFwIAWomQfV0LQIQLAAA99M7AbgWg9w8OAL31zMIuBUD4A8BnvTKxeQEQ/gDwWI9sbFoAhD8AXNY6I5sVAOEPALe1zMomBUD4A8AyrTKz+78DAAC0V70AWP0DwDotsrNqARD+ALBN7QytVgCEPwDsUzNLfQYAABKqUgCs/gGgjFqZWrwACH8AKKtGthYtAMIfAOoonbE+AwAACRUrAFb/AFBXyawtUgCEPwC0USpzHQEAQEK7C4DVPwC0VSJ77QAAQEK7CoDVPwD0sTeDNxcA4Q8Afe3JYkcAAJDQpgJg9Q8AMWzNZDsAAJDQ6gJg9Q8AsWzJZjsAAJDQqgJg9Q8AMa3NaDsAAJDQ4gJg9Q8Asa3J6vuag8Cc+/cfrv7Zp1cvG04CdbjHiepuyRdZ/VParYfiUx6SjMg9Tk93d3ez+a4A0NSah+JTHpKMwD1OBEsKgA8B0syeB2OJ74fa3OOMZLYAWP1TQqkHmwckUbnHiWRJdtsBoLrSDzQPSKJxjzOimwXA6h8AxjSX4XYAqKrWSsYKiSjc44xKAQCAhK4WANv/7FV7BWOFRG/ucaK7leV2AAAgIQUAABK6WABs/wPAMVzLdDsAAJCQAgAACT0rALb/AeBYLmW7HQAASEgBAICEFAAASOhRAXD+DwDH9DTj7QAAQEIKAAAkpAAAQEJfCoDzfwA4tvOstwMAAAkpAACQkAIAAAkpAACQ0FfT5AOAAJDFKfPtAABAQgoAACSkAABAQgoAACSkAABAQgoAACSkAABAQnf+DYAxfHzzuvcIq/372/9Wf4///fFz9feAa9zj1714+673CMy47z0Al40Y+AAnT59hCkE8CkAwgh84otOzTRGIQwEIQOgDWZw/75SBvnwIsDPhD2Tl+deXHYBO3PgAjgZ6sgPQgfAHeMxzsT0FoDE3OcBlno9tKQANubkBbvOcbEcBaMRNDbCM52UbCkADbmaAdTw361MAKnMTA2zj+VmXAlCRmxdgH8/RehSASty0AGV4ntahAABAQgpABdoqQFmeq+UpAIW5SQHq8HwtSwEAgIQUAABISAEoyPYUQF2es+UoAACQkAJQiFYK0IbnbRkKAAAkpAAAQEIKAAAkpAAU4DwKoC3P3f0UAABISAEAgIQUAKr53x8/D/36MMc9zsgUAABISAGgqlorGCsjonCPMyoFAAASUgCorvRKxsqIaNzjjEgBoIlSDzQPRqJyjzMaBYBm9j7YPBiJzj3OSO57D0Aupwfcv7/97+rvgRG4xxmFAkAXSx6SHoqMzD1OdAoAXXkAcnTucaLyGQAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASOi+9wBH9uLtu94jAAzv45vXvUc4JDsAAJCQAgAACSkAAJCQAgAACSkAAJCQAgAACSkAAJCQAgAACSkAAJCQAgAACSkAAJCQAgAACSkAAJCQAgAACSkAAJCQAgAACSkAAJCQAgAACSkAAJCQAgAACSkAAJCQAgAACSkAAJCQAgAACSkAAJCQAgAACSkAAJCQAgAACSkAAJCQAgAACSkAAJCQAgAACSkAAJCQAgAACSkAAJCQAgAACSkAAJDQfe8BOJ6/f/tu9mu+/v73BpPw1P37D7Nf8+nVywaTcO7jm9ezX/Pi7bsGk5CJAsBuSwJ/7nsUgjqWBP7c9ygE5S0J/LnvUQjYSwFgsy3BP/daikAZW4J/7rUUgf22BP/caykCbKUAsFrJ4L/22orANiWD/9prKwLrlQz+a6+tCLCWDwGySs3w7/E+R1Iz/Hu8z1HUDP8e78NxKAAs1jqUlYDlWoeyErBM61BWAljDEQCzegaxI4HbegaxI4HregaxIwGWsgPATVFW4VHmiCTKKjzKHFFEWYVHmYO4FAAASEgB4Kpoq+5o8/QUbdUdbZ5eoq26o81DLAoAF0UN26hztRQ1bKPO1UrUsI06F/0pADwTPWSjz1dT9JCNPl8t0UM2+nz0oQAAQEIKAI+MsroeZc6SRlldjzJnKaOsrkeZk3YUAABISAHgi9FW1aPNu8doq+rR5t1qtFX1aPNSlwIAAAkpAACQkAIAAAkpAEzTNO55+qhzrzHqefqocy816nn6qHNTngIAAAkpAACQkAIAAAkpAACQkAIAAAkpAACQkAIAAAkpAACQkALANE3T9PX3v/ceYZNR517j06uXvUfYZNS5l3rx9l3vETYZdW7KUwAAICEFAAASUgAAICEFgC9GO08fbd49RjtPH23erUY7Tx9tXupSAAAgIQWAR0ZZVY8yZ0mjrKpHmbOUUVbVo8xJOwoAACSkAPBM9NV19Plqir66jj5fLdFX19Hnow8FgIuihmzUuVqKGrJR52olashGnYv+FACuiha20ebpKVrYRpunl2hhG20eYlEAACAhBYCboqy6o8wRSZRVd5Q5ooiy6o4yB3Hd9x6A+E7h+/dv33V7by47he/9+w/d3pvnTuH78c3rbu8Nc+wAsFjrMBb+y7UOY+G/TOswFv6soQCwSqtQFv7rtQpl4b9Oq1AW/qzlCIDVah4JCP59ah4JCP7tah4JCH62UgDYrGQREPxllSwCgr+ckkVA8LOXAsBuT8N7SSEQ+G08De8lhUDg1/c0vJcUAoFPaQoAxQn3uIR7TMKdHnwIEAASUgAAICEFAAASUgAAICEFAAASUgAAICEFAAASUgAAICEFAAASUgAAICEFAAASUgAAICEFAAASUgAAICEFAAASUgAAICEFAAASUgAAIKH73gNwPN/89MPs1/z5468NJuGpv/7z7ezX/OuXPxpMwrm/f/tu9mu+/v73BpOQiQLAbksCf+57FII6lgT+3PcoBOUtCfy571EI2EsBYLMtwT/3WopAGVuCf+61FIH9tgT/3GspAmylALBayeC/9tqKwDYlg//aaysC65UM/muvrQiwlg8BskrN8O/xPkdSM/x7vM9R1Az/Hu/DcSgALNY6lJWA5VqHshKwTOtQVgJYwxEAs3oGsSOB23oGsSOB63oGsSMBlrIDwE1RVuFR5ogkyio8yhxRRFmFR5mDuBQAAEhIAeCqaKvuaPP0FG3VHW2eXqKtuqPNQywKABdFDduoc7UUNWyjztVK1LCNOhf9KQA8Ez1ko89XU/SQjT5fLdFDNvp89KEAAEBCCgCPjLK6HmXOkkZZXY8yZymjrK5HmZN2FAAASEgB4IvRVtWjzbvHaKvq0ebdarRV9WjzUpcCAAAJKQAAkJACAAAJKQBM0zTuefqoc68x6nn6qHMvNep5+qhzU54CAAAJKQAAkJACAAAJKQAAkJACAAAJKQAAkJACAAAJKQAAkJACwDRN0/Tnj7/2HmGTUede41+//NF7hE1GnXupr7//vfcIm4w6N+UpAACQkAIAAAkpAACQkALAF6Odp4827x6jnaePNu9Wo52njzYvdSkAAJCQAsAjo6yqR5mzpFFW1aPMWcooq+pR5qQdBQAAElIAeCb66jr6fDVFX11Hn6+W6Kvr6PPRhwLARVFDNupcLUUN2ahztRI1ZKPORX8KAFdFC9to8/QULWyjzdNLtLCNNg+xKAAAkJACwE1RVt1R5ogkyqo7yhxRRFl1R5mDuO57D0B8p/D95qcfur03l53C96//fNvtvXnuFL5///Zdt/eGOXYAWKx1GAv/5VqHsfBfpnUYC3/WUABYpVUoC//1WoWy8F+nVSgLf9ZyBMBqNY8EBP8+NY8EBP92NY8EBD9bKQBsVrIICP6yShYBwV9OySIg+NlLAWC3p+G9pBAI/DaehveSQiDw63sa3ksKgcCnNAWA4oR7XMI9JuFODz4ECAAJKQAAkJACAAAJKQAAkJACAAAJKQAAkJACAAAJKQAAkJACAAAJKQAAkJACAAAJKQAAkJACAAAJKQAAkJACAAAJKQAAkJACAAAJKQAAkJACAAAJ3fcegOO5f/9h9ms+vXrZYBKe+vjm9ezXvHj7rsEknPvmpx9mv+bPH39tMAmZKADstiTw575HIahjSeDPfY9CUN6SwJ/7HoWAvRQANtsS/HOvpQiUsSX4515LEdhvS/DPvZYiwFYKAKuVDP5rr60IbFMy+K+9tiKwXsngv/baigBr+RAgq9QM/x7vcyQ1w7/H+xxFzfDv8T4chwLAYq1DWQlYrnUoKwHLtA5lJYA1HAEwq2cQOxK4rWcQOxK4rmcQOxJgKTsA3BRlFR5ljkiirMKjzBFFlFV4lDmISwEAgIQUAK6KtuqONk9P0Vbd0ebpJdqqO9o8xKIAcFHUsI06V0tRwzbqXK1EDduoc9GfAsAz0UM2+nw1RQ/Z6PPVEj1ko89HHwoAACSkAPDIKKvrUeYsaZTV9ShzljLK6nqUOWlHAQCAhBQAvhhtVT3avHuMtqoebd6tRltVjzYvdSkAAJCQAgAACSkAAJCQAsA0TeOep4869xqjnqePOvdSo56njzo35SkAAJCQAgAACSkAAJCQAgAACSkAAJCQAgAACSkAAJCQAgAACSkATNM0TZ9evew9wiajzr3Gi7fveo+wyahzL/Xnj7/2HmGTUeemPAUAABJSAAAgIQUAABJSAPhitPP00ebdY7Tz9NHm3Wq08/TR5qUuBQAAElIAeGSUVfUoc5Y0yqp6lDlLGWVVPcqctKMAAEBCCgDPRF9dR5+vpuir6+jz1RJ9dR19PvpQALgoashGnaulqCEbda5WooZs1LnoTwHgqmhhG22enqKFbbR5eokWttHmIRYFoKKPb173HgFgaJ6j9SgABRx59RNl1R1ljkii3HdR5ogiyqo7yhy1uO/2u+89APGdwvf+/Ydu781lp4dgj1WSB/B1p/D95qcfur03zLEDwGKtw1j4L9c6jIX/Mq3DWPizhgJQ2dHOr1qFsvBfr1UoC/91WoXyEcP/aM/PaO6maZoeHh4eeg9yBNdu1qM+MGscCQj+Mmo8OI96H7dU40jgiMF/ku2Z2tLd3d2dAlDQrYfukW/YEkVA8NdRoggc+d7tpUQROHLwT1Pe52krCkAFGuuyQiDw+1hSCDLdq1EsKQRHD/ynPEvrUgAq0FoB9vEcre/u7u7OhwABICEFoLBb7dQnWgFus/pvRwGoQAkAWE/4t6UAdKAEADzmudjeV9P0+cMAvQc5mrm26mYH+GzueWj1X9Yp8+0AVKQEANwm/PtRACpTAgAuE/59fdn6928B1OUfYAH4zPOwr9MRgALQ0NLVvhsfOCLPwBieFYBpUgJaWLPl7z8C4Ag89+I4/9C/AtDB1nN//2EAI/CMi0sBCMCH/wD+IfzbUAACUQSAzAR/W+cF4Ktrf0Abbn4gK8+/tp5m/LPAtwvQlx0B4MiEfj8KwCAUAeBIBH9/CsCgFAJgJAI/ntkCME1KAAAcyaXP+Pl/AQBAQgoAACR0sQD464AAcAzXMt0OAAAkpAAAQEJXC4BjAAAY260stwMAAAkpAACQ0M0C4BgAAMY0l+F2AAAgodkCYBcAAMayJLvtAABAQgoAACS0qAA4BgCAMSzNbDsAAJDQ4gJgFwAAYluT1XYAACChVQXALgAAxLQ2o+0AAEBCqwuAXQAAiGVLNtsBAICENhUAuwAAEMPWTLYDAAAJbS4AdgEAoK89WbxrB0AJAIA+9mawIwAASGh3AbALAABtlcheOwAAkFCRAmAXAADaKJW5xXYAlAAAqKtk1joCAICEihYAuwAAUEfpjC2+A6AEAEBZNbK1yhGAEgAAZdTKVJ8BAICEqhUAuwAAsE/NLK26A6AEAMA2tTO0+hGAEgAA67TITp8BAICEmhQAuwAAsEyrzGy2A6AEAMBtLbOy6RGAEgAAl7XOyOafAVACAOCxHtnY5UOASgAAfNYrE7v9LQAlAIDsemZh178GqAQAkFXvDOz+7wD0vgAA0FqE7OteAKYpxoUAgBaiZF6IAjBNcS4IANQSKevCFIBpinVhAKCkaBkXqgBMU7wLBAB7Rcy2cAVgmmJeKADYImqmhSwA0xT3ggHAUpGzLGwBmKbYFw4AbomeYaELwDTFv4AA8NQI2RV+wHMPDw8PvWcAgGtGCP6T8DsA50a6sADkMlpGDVUApmm8CwzA8Y2YTcMNfM6RAAA9jRj8J8PtAJwb+cIDMLbRM2joAjBN4/8CABjPEbJn+B/gnCMBAGo6QvCfDL8DcO5IvxgAYjlaxhzqhzlnNwCAEo4W/CeH/KHOKQIAbHHU4D851BHAJUf/BQJQXobsOPwPeM5uAAC3ZAj+kzQ/6DlFAIBzmYL/JN0PfE4RAMgtY/CfpP3BzykCALlkDv6T9BfgnCIAcGyC/x8uxBXKAMAxCP3LXJQZigDAmAT/bS7OCsoAQGxCfzkXaiNlACAGob+Ni1aAMgDQltDfzwWsQCEAKEvgl+eCNqAQAKwj8OtzgTtRCgA+E/Z9uOhBKQjAUQj4mP4P0qfEFdudu3YAAAAASUVORK5CYII=" alt="ファミリーカレンダーのアイコン" />
       <h1 class="auth-title">ファミリーカレンダー</h1>
       <p class="auth-sub">
@@ -520,11 +561,11 @@
          （背景色→ラベル名）から取得できた場合だけ差し替える。 */
       const MEMBER_DEFAULT_LABELS = { a: "黄色", b: "水色", c: "ピンク", d: "緑色", e: "オレンジ" };
       const MEMBERS = {
-        a: { key: "a", name: MEMBER_DEFAULT_LABELS.a, colorId: "5",  color: "#f6bf26" },
-        b: { key: "b", name: MEMBER_DEFAULT_LABELS.b, colorId: "7",  color: "#039be5" },
-        c: { key: "c", name: MEMBER_DEFAULT_LABELS.c, colorId: "4",  color: "#e67c73" },
-        d: { key: "d", name: MEMBER_DEFAULT_LABELS.d, colorId: "10", color: "#0b8043" },
-        e: { key: "e", name: MEMBER_DEFAULT_LABELS.e, colorId: "6",  color: "#f4511e" }
+        a: { key: "a", name: MEMBER_DEFAULT_LABELS.a, colorId: "5",  color: "#f6bf26", chipBg: "#f6bf26", onChip: "#2b2622" },
+        b: { key: "b", name: MEMBER_DEFAULT_LABELS.b, colorId: "7",  color: "#039be5", chipBg: "#0277bd", onChip: "#ffffff" },
+        c: { key: "c", name: MEMBER_DEFAULT_LABELS.c, colorId: "4",  color: "#e67c73", chipBg: "#e67c73", onChip: "#2b2622" },
+        d: { key: "d", name: MEMBER_DEFAULT_LABELS.d, colorId: "10", color: "#0b8043", chipBg: "#0b8043", onChip: "#ffffff" },
+        e: { key: "e", name: MEMBER_DEFAULT_LABELS.e, colorId: "6",  color: "#f4511e", chipBg: "#d63c0e", onChip: "#ffffff" }
       };
       const MEMBER_ORDER = ["a", "b", "c", "d", "e"];
       const COLORID_TO_MEMBER = {};
@@ -600,6 +641,7 @@
       const state = {
         gisReady: false,
         tokenClient: null,
+        _tokenResolve: null,
         accessToken: null,
         tokenExpiry: 0,
         refreshTimer: null,
@@ -645,6 +687,11 @@
 
       /* =====================================================
          Google Identity Services（Token Client）
+         アクセストークン自体の有効期限（約1時間）は変えられないため、
+         トークンと有効期限を localStorage に保存し、次回起動時は
+         期限内ならそのまま使い、切れていれば UI を出さずに
+         サイレント再取得（prompt なし）を試みる。
+         サイレント再取得に失敗したときだけサインイン画面を出す。
          ===================================================== */
       function onGisLoad() { state.gisReady = true; }
       window.onGisLoad = onGisLoad;
@@ -653,25 +700,75 @@
         return GOOGLE_CLIENT_ID && GOOGLE_CLIENT_ID !== "REPLACE_WITH_CLIENT_ID";
       }
 
-      function ensureTokenClient() {
+      /* ---------- トークンの永続化 ---------- */
+      const TOKEN_STORE_KEY = "fc.auth.token";
+      const TOKEN_EXPIRY_KEY = "fc.auth.expiry";
+      const SIGNED_IN_KEY = "fc.auth.signedIn";
+      function persistToken() {
+        try {
+          if (state.accessToken) {
+            localStorage.setItem(TOKEN_STORE_KEY, state.accessToken);
+            localStorage.setItem(TOKEN_EXPIRY_KEY, String(state.tokenExpiry));
+            localStorage.setItem(SIGNED_IN_KEY, "1");
+          }
+        } catch (e) { /* 保存できない環境ではメモリ上のみで動作する */ }
+      }
+      function clearStoredToken() {
+        try {
+          localStorage.removeItem(TOKEN_STORE_KEY);
+          localStorage.removeItem(TOKEN_EXPIRY_KEY);
+          localStorage.removeItem(SIGNED_IN_KEY);
+        } catch (e) {}
+      }
+      function restoreStoredToken() {
+        try {
+          const t = localStorage.getItem(TOKEN_STORE_KEY);
+          const exp = parseInt(localStorage.getItem(TOKEN_EXPIRY_KEY) || "0", 10);
+          if (t && exp > Date.now()) {
+            state.accessToken = t;
+            state.tokenExpiry = exp;
+            return true;
+          }
+        } catch (e) {}
+        return false;
+      }
+      function hasSignedInBefore() {
+        try { return localStorage.getItem(SIGNED_IN_KEY) === "1"; } catch (e) { return false; }
+      }
+
+      function applyTokenResponse(resp) {
+        state.accessToken = resp.access_token;
+        state.tokenExpiry = Date.now() + (resp.expires_in ? resp.expires_in * 1000 : 3600 * 1000);
+        persistToken();
+        scheduleSilentRefresh();
+      }
+
+      function ensureTokenClient(silent) {
         if (state.tokenClient) return true;
         if (!state.gisReady || !window.google || !google.accounts || !google.accounts.oauth2) {
-          toast("Googleサインインの読み込み中です。少し待って再試行してください");
+          if (!silent) toast("Googleサインインの読み込み中です。少し待って再試行してください");
           return false;
         }
         state.tokenClient = google.accounts.oauth2.initTokenClient({
           client_id: GOOGLE_CLIENT_ID,
           scope: SCOPES,
           callback: function (resp) {
+            const resolver = state._tokenResolve;
+            state._tokenResolve = null;
             if (resp && resp.access_token) {
-              state.accessToken = resp.access_token;
-              state.tokenExpiry = Date.now() + (resp.expires_in ? resp.expires_in * 1000 : 3600 * 1000);
-              scheduleSilentRefresh();
-              onSignedIn();
+              applyTokenResponse(resp);
+              if (resolver) { resolver(true); return; }
+              // 通常のサインイン操作からの応答：アプリ画面へ進む
+              if (el("appScreen").hidden) onSignedIn();
+            } else if (resolver) {
+              resolver(false);
             }
           },
           error_callback: function (err) {
             console.warn("GIS error", err);
+            const resolver = state._tokenResolve;
+            state._tokenResolve = null;
+            if (resolver) { resolver(false); return; }
             if (!state.accessToken) showAuth("サインインできませんでした。再度お試しください。");
           }
         });
@@ -679,20 +776,56 @@
       }
 
       function requestToken(promptValue) {
-        if (!ensureTokenClient()) return;
+        if (!ensureTokenClient(false)) return;
         state.tokenClient.requestAccessToken({ prompt: promptValue || "" });
       }
 
+      /* UI を出さないトークン再取得。成功/失敗を Promise<boolean> で返す */
+      function trySilentToken() {
+        return new Promise(function (resolve) {
+          if (!ensureTokenClient(true)) { resolve(false); return; }
+          let done = false;
+          const finish = function (ok) {
+            if (done) return;
+            done = true;
+            if (state._tokenResolve === finish) state._tokenResolve = null;
+            resolve(ok);
+          };
+          state._tokenResolve = finish;
+          try {
+            state.tokenClient.requestAccessToken({ prompt: "" });
+          } catch (e) { finish(false); return; }
+          setTimeout(function () { finish(false); }, 12000);
+        });
+      }
+
+      function waitForGis(timeoutMs) {
+        return new Promise(function (resolve) {
+          const start = Date.now();
+          (function check() {
+            if (state.gisReady && window.google && google.accounts && google.accounts.oauth2) { resolve(true); return; }
+            if (Date.now() - start > timeoutMs) { resolve(false); return; }
+            setTimeout(check, 200);
+          })();
+        });
+      }
+
+      /* 期限の約5分前にサイレント更新するタイマー */
       function scheduleSilentRefresh() {
         clearTimeout(state.refreshTimer);
-        const delay = Math.max(30 * 1000, state.tokenExpiry - Date.now() - 60 * 1000);
+        if (!state.tokenExpiry) return;
+        const delay = Math.max(15 * 1000, state.tokenExpiry - Date.now() - 5 * 60 * 1000);
         state.refreshTimer = setTimeout(function () {
-          if (state.accessToken && !state.preview) requestToken("");
+          if (state.preview || !state.accessToken) return;
+          trySilentToken();
         }, delay);
       }
 
       function tokenValid() {
         return !!state.accessToken && Date.now() < state.tokenExpiry - 5000;
+      }
+      function tokenNearExpiry() {
+        return !!state.accessToken && state.tokenExpiry - Date.now() < 5 * 60 * 1000;
       }
 
       function signOut() {
@@ -701,6 +834,7 @@
           google.accounts.oauth2.revoke(state.accessToken, function () {});
         }
         state.accessToken = null; state.tokenExpiry = 0;
+        clearStoredToken();
         state.calendarId = null; state.events = []; state.preview = false;
         MEMBER_ORDER.forEach(function (k) { MEMBERS[k].name = MEMBER_DEFAULT_LABELS[k]; });
         showAuth();
@@ -712,22 +846,12 @@
       async function api(path, options, retried) {
         options = options || {};
         if (!tokenValid()) {
-          // サイレント再認証を1回試す
-          await new Promise(function (resolve) {
-            if (!ensureTokenClient()) { resolve(); return; }
-            const prev = state.tokenClient.callback;
-            state.tokenClient.callback = function (resp) {
-              state.tokenClient.callback = prev;
-              if (resp && resp.access_token) {
-                state.accessToken = resp.access_token;
-                state.tokenExpiry = Date.now() + (resp.expires_in ? resp.expires_in * 1000 : 3600 * 1000);
-                scheduleSilentRefresh();
-              }
-              resolve();
-            };
-            state.tokenClient.requestAccessToken({ prompt: "" });
-            setTimeout(resolve, 8000);
-          });
+          // サイレント再認証を1回試す。失敗したらサインイン画面に戻す
+          const ok = await trySilentToken();
+          if (!ok && !tokenValid()) {
+            showAuth();
+            throw new Error("サインインが必要です");
+          }
         }
         const headers = Object.assign(
           { "Authorization": "Bearer " + state.accessToken },
@@ -1043,7 +1167,7 @@
             const timeLabel = (!sg.ev.allDay && sg.ev.startDT && !sg.contL && (sg.e - sg.s) >= 1)
               ? '<span class="bar-time">' + fmtTime(sg.ev.startDT) + "</span>" : "";
             const barCls = "bar" + (sg.contL ? " cont-l" : "") + (sg.contR ? " cont-r" : "");
-            const barStyle = "left:calc(" + left + "% + 1.5px);width:calc(" + width + "% - 3px);top:" + top + "px;background:" + member.color;
+            const barStyle = "left:calc(" + left + "% + 1.5px);width:calc(" + width + "% - 3px);top:" + top + "px;background:" + member.chipBg + ";color:" + member.onChip;
             html += interactive
               ? '<button type="button" class="' + barCls + '" data-event="' + esc(sg.ev.id) + '" style="' + barStyle + '" title="' + esc(sg.ev.title) + '">' + timeLabel + esc(sg.ev.title) + "</button>"
               : '<span class="' + barCls + '" style="' + barStyle + '" aria-hidden="true">' + timeLabel + esc(sg.ev.title) + "</span>";
@@ -1207,7 +1331,7 @@
         }
         openSheet(
           '<div class="detail-title">' + esc(ev.title) + "</div>"
-          + '<span class="detail-chip" style="background:' + member.color + '">' + esc(member.name) + "</span>"
+          + '<span class="detail-chip" style="background:' + member.chipBg + ';color:' + member.onChip + '">' + esc(member.name) + "</span>"
           + '<div class="detail-row"><span class="dr-name">日時</span><span>' + when + "</span></div>"
           + (ev.memo ? '<div class="detail-row"><span class="dr-name">メモ</span><span style="white-space:pre-wrap">' + esc(ev.memo) + "</span></div>" : "")
           + (ev.htmlLink ? '<a class="sheet-link" href="' + esc(ev.htmlLink) + '" target="_blank" rel="noopener">Googleカレンダーで開く</a>' : "")
@@ -1362,6 +1486,7 @@
          画面遷移
          ===================================================== */
       function showAuth(msg) {
+        el("bootScreen").hidden = true;
         el("authScreen").hidden = false;
         el("appScreen").hidden = true;
         el("legend").innerHTML = "";
@@ -1370,6 +1495,7 @@
         if (msg) toast(msg);
       }
       function showApp() {
+        el("bootScreen").hidden = true;
         el("authScreen").hidden = true;
         el("appScreen").hidden = false;
         renderLegend();
@@ -1381,6 +1507,37 @@
         if (!state.selectedKey) state.selectedKey = todayKey();
         showApp();
         resolveCalendar();
+      }
+
+      /* =====================================================
+         起動時の復帰フロー
+         以前にサインインしたことがある場合は、サインイン画面を
+         一瞬も出さず、まず保存トークン→サイレント更新の順に試す。
+         どちらも駄目なときだけサインイン画面を表示する。
+         ===================================================== */
+      async function bootstrap() {
+        restoreStoredToken();
+        if (!hasSignedInBefore()) { showAuth(); return; }
+        if (tokenValid()) {
+          scheduleSilentRefresh();
+          onSignedIn();
+          return;
+        }
+        const gisOk = await waitForGis(10000);
+        if (gisOk) {
+          const ok = await trySilentToken();
+          if (ok) { onSignedIn(); return; }
+        }
+        showAuth();
+      }
+
+      /* アプリに復帰したとき、トークンが切れている／残り5分未満なら
+         裏でサイレント更新し、成功したら予定を取り直す */
+      function resumeCheck() {
+        if (state.preview || el("appScreen").hidden) return;
+        if (!tokenValid() || tokenNearExpiry()) {
+          trySilentToken().then(function (ok) { if (ok) loadEvents(); });
+        }
       }
 
       /* =====================================================
@@ -1450,7 +1607,13 @@
           state.deferredInstall = e;
         });
 
+        document.addEventListener("visibilitychange", function () {
+          if (document.visibilityState === "visible") resumeCheck();
+        });
+        window.addEventListener("focus", resumeCheck);
+
         initSwipe();
+        bootstrap();
       });
     </script>
   </body>
