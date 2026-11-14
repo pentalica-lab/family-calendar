@@ -16,7 +16,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet" />
-    <script src="https://accounts.google.com/gsi/client" async defer onload="onGisLoad()"></script>
     <style>
       :root {
         --bg: #faf8f6;
@@ -531,6 +530,109 @@
       .f-row .f-body .dt-input[type="date"] { flex: 1 1 8.5em; }
       .f-row .f-body .f-time-wrap { display: inline-flex; flex: 0 1 7em; min-width: 0; }
       .f-row .f-body .f-time-wrap .dt-input { flex: 1; width: 100%; }
+
+      /* =====================================================
+         最終修正層 v9（実機報告への根本対応）
+         根本原因: リデザイン層の無条件 :root がダークモードの
+         --surface-2（明色）を上書きし、文字色（明色）と重なって
+         「白背景に白文字」になっていた（ラベルチップ／閉じるボタン）。
+         ここで全変数を両モードとも最終確定し、白×白が起きる部品は
+         変数に頼らず担当色×読める文字色の固定ペアで描く。
+         また予定バーは絶対配置の重ね描きをやめ、日付行と別ブロックの
+         通常フローに分離した（.week-bars-area）。構造的に重ならない。
+         ===================================================== */
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff; --surface: #ffffff; --surface-2: #f5f3f0;
+        --ink: #2b2622; --ink-2: #5f554b; --ink-3: #71665a;
+        --line: #e9e2db; --accent: #d63a2c; --accent-soft: #fdecea;
+        --sun: #c62f22; --sat: #2b6cb0; --today-bg: #c53727;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #17140f; --surface: #221e18; --surface-2: #2c2720;
+          --ink: #f2ece4; --ink-2: #cfc4b4; --ink-3: #a89a86;
+          --line: #3a342a; --accent: #ff7a6b; --accent-soft: #3d2320;
+          --sun: #ff8a7a; --sat: #7ab5e8; --today-bg: #c53727;
+        }
+      }
+      /* --- 上部ラベル（フィルターチップ）: ON=担当色背景×読める文字色（固定ペア） --- */
+      .legend-chip {
+        opacity: 1; min-height: 2rem; font-size: 0.76rem; padding: 3px 10px 3px 8px;
+        border: 1.5px solid var(--line) !important;
+        background: var(--surface-2) !important; color: var(--ink) !important;
+      }
+      .legend-chip[aria-pressed="true"][data-member="a"] { background: #f6bf26 !important; color: #2b2622 !important; border-color: #c79408 !important; }
+      .legend-chip[aria-pressed="true"][data-member="b"] { background: #0277bd !important; color: #ffffff !important; border-color: #0277bd !important; }
+      .legend-chip[aria-pressed="true"][data-member="c"] { background: #e67c73 !important; color: #2b2622 !important; border-color: #cf574c !important; }
+      .legend-chip[aria-pressed="true"][data-member="d"] { background: #0b8043 !important; color: #ffffff !important; border-color: #0b8043 !important; }
+      .legend-chip[aria-pressed="true"][data-member="e"] { background: #d63c0e !important; color: #ffffff !important; border-color: #d63c0e !important; }
+      .legend-chip[aria-pressed="false"] {
+        background: transparent !important; color: var(--ink-2) !important; border-color: var(--line) !important;
+      }
+      .legend-chip[aria-pressed="false"] i { filter: grayscale(0.85); opacity: 0.55; }
+      /* --- フォームの担当チップ: 選択時も同じ固定ペア（半透明の白飛びを廃止） --- */
+      .member-pick {
+        background: var(--surface-2) !important; color: var(--ink) !important;
+        border: 2px solid var(--line) !important; box-shadow: none !important;
+      }
+      .member-pick[aria-pressed="true"][data-pick="a"] { background: #f6bf26 !important; color: #2b2622 !important; border-color: #c79408 !important; }
+      .member-pick[aria-pressed="true"][data-pick="b"] { background: #0277bd !important; color: #ffffff !important; border-color: #0277bd !important; }
+      .member-pick[aria-pressed="true"][data-pick="c"] { background: #e67c73 !important; color: #2b2622 !important; border-color: #cf574c !important; }
+      .member-pick[aria-pressed="true"][data-pick="d"] { background: #0b8043 !important; color: #ffffff !important; border-color: #0b8043 !important; }
+      .member-pick[aria-pressed="true"][data-pick="e"] { background: #d63c0e !important; color: #ffffff !important; border-color: #d63c0e !important; }
+      /* --- シート内ボタン: 背景×文字を固定ペアで確定（両モード） --- */
+      .btn-ghost { background: #eae4dc !important; color: #2b2622 !important; }
+      .btn-primary { background: #c53727 !important; color: #ffffff !important; }
+      .btn-danger { background: transparent !important; color: #c62f22 !important; border-color: #e0a198 !important; }
+      .btn-danger.armed { background: #c62f22 !important; color: #ffffff !important; border-color: #c62f22 !important; }
+      .sheet-head .sh-cancel { color: #5f554b !important; }
+      .sheet-head .sh-save { color: #c53727 !important; }
+      .detail-chip { box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.14); }
+      @media (prefers-color-scheme: dark) {
+        .btn-ghost { background: #3a342a !important; color: #f2ece4 !important; }
+        .btn-danger { color: #ff8a7a !important; border-color: #7a443c !important; }
+        .sheet-head .sh-cancel { color: #cfc4b4 !important; }
+        .sheet-head .sh-save { color: #ff8a7a !important; }
+      }
+      /* --- 月表示の密度（TimeTree寄せ）＋日付とバーのフロー分離 --- */
+      .month-title { font-size: 1.16rem; }
+      @media (min-width: 760px) { .month-title { font-size: 1.32rem; } }
+      .weekday-row { font-size: 0.72rem; padding: 2px 0 4px; }
+      .week { display: flex; flex-direction: column; }
+      .week-days { height: 26px; flex: none; }
+      .day-cell {
+        min-height: 0 !important; height: 26px; padding: 2px 3px;
+        display: flex; align-items: flex-start;
+      }
+      .dnum {
+        font-size: 0.78rem; font-weight: 800;
+        min-width: 1.32rem; height: 1.32rem; padding: 0 2px;
+        background: var(--surface);
+      }
+      .week-bars-area { position: relative; flex: none; margin: 0 0 2px; }
+      .col-sel { position: absolute; top: 0; bottom: 0; background: var(--accent-soft); border-radius: 3px; z-index: 0; }
+      .col-hit {
+        position: absolute; top: 0; bottom: 0; z-index: 1;
+        min-height: 0 !important; background: transparent; border: 0; padding: 0; margin: 0;
+      }
+      .week-bars-area .bar {
+        position: absolute; z-index: 2; margin: 0;
+        height: 16px; max-height: 16px; line-height: 16px; min-height: 0 !important;
+        font-size: 0.62rem; font-weight: 700; padding: 0 4px; border-radius: 3px;
+      }
+      .week-bars-area .more-label {
+        position: absolute; bottom: 0; z-index: 2;
+        font-size: 0.62rem; font-weight: 800; color: var(--ink-2);
+        background: transparent; padding: 0 2px;
+      }
+      /* FABは両モードとも濃い赤×白で固定（ダーク時の薄色アクセント×白は低コントラストのため） */
+      .fab-center { background: #c53727 !important; color: #ffffff !important; }
+      /* フォームのエラー文字: 両モードで読める濃さに */
+      .form-error { color: #c62f22 !important; }
+      @media (prefers-color-scheme: dark) {
+        .form-error { color: #ff8a7a !important; }
+      }
     </style>
   </head>
   <body>
@@ -574,6 +676,8 @@
           </button>
         </div>
       </header>
+
+      <div id="previewBanner" class="preview-banner" hidden><span>サンプルデータを表示中です（表示確認用プレビュー）</span></div>
 
       <div class="legend" id="legend"></div>
 
@@ -619,6 +723,9 @@
       const FALLBACK_CALENDAR_ID = "family00285169980899599750@group.calendar.google.com";
       const TARGET_CALENDAR_NAME = "ファミリー カレンダー";
       const SCOPES = "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly";
+      /* リダイレクト方式の戻り先（GCP側に承認済みリダイレクトURIとして登録する） */
+      const REDIRECT_URI = "https://pentalica-lab.github.io/family-calendar/";
+      const AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
       const API_BASE = "https://www.googleapis.com/calendar/v3";
 
       /* 担当スロットと Google Calendar の colorId の対応。
@@ -705,12 +812,8 @@
 
       /* ---------------- 状態 ---------------- */
       const state = {
-        gisReady: false,
-        tokenClient: null,
-        _tokenResolve: null,
         accessToken: null,
         tokenExpiry: 0,
-        refreshTimer: null,
         calendarId: null,
         calendarName: "",
         calendarList: [],
@@ -752,15 +855,16 @@
       function setLoading(on) { el("loadingBar").hidden = !on; }
 
       /* =====================================================
-         Google Identity Services（Token Client）
-         アクセストークン自体の有効期限（約1時間）は変えられないため、
-         トークンと有効期限を localStorage に保存し、次回起動時は
-         期限内ならそのまま使い、切れていれば UI を出さずに
-         サイレント再取得（prompt なし）を試みる。
-         サイレント再取得に失敗したときだけサインイン画面を出す。
+         サインイン（リダイレクト方式 / OAuth 2.0 implicit flow）
+         旧GISトークンクライアントの無言更新はサードパーティCookieに
+         依存し、Safari（iPhone）では原理的に成功しないため廃止した。
+         トークンと有効期限は localStorage に保存し、起動時はまず
+         保存トークンを確認して、有効ならそのままカレンダーを表示する
+         （再起動してもトークンは消えず、認証画面に飛ばさない）。
+         無い/切れている場合はトップレベル遷移で認可エンドポイントへ
+         移動し、最初は prompt=none を試す。Googleにサインイン済みで
+         同意が生きていれば、タップなしで自動的にアプリへ戻ってくる。
          ===================================================== */
-      function onGisLoad() { state.gisReady = true; }
-      window.onGisLoad = onGisLoad;
 
       function clientIdConfigured() {
         return GOOGLE_CLIENT_ID && GOOGLE_CLIENT_ID !== "REPLACE_WITH_CLIENT_ID";
@@ -770,6 +874,10 @@
       const TOKEN_STORE_KEY = "fc.auth.token";
       const TOKEN_EXPIRY_KEY = "fc.auth.expiry";
       const SIGNED_IN_KEY = "fc.auth.signedIn";
+      const EMAIL_STORE_KEY = "fc.auth.email";
+      const STATE_STORE_KEY = "fc.auth.state";
+      const SILENT_TRIED_KEY = "fc.auth.silentTried";
+      const REAUTH_TRIED_KEY = "fc.auth.reauthTried";
       function persistToken() {
         try {
           if (state.accessToken) {
@@ -784,6 +892,7 @@
           localStorage.removeItem(TOKEN_STORE_KEY);
           localStorage.removeItem(TOKEN_EXPIRY_KEY);
           localStorage.removeItem(SIGNED_IN_KEY);
+          localStorage.removeItem(EMAIL_STORE_KEY);
         } catch (e) {}
       }
       function restoreStoredToken() {
@@ -801,90 +910,122 @@
       function hasSignedInBefore() {
         try { return localStorage.getItem(SIGNED_IN_KEY) === "1"; } catch (e) { return false; }
       }
+      /* サインインに使ったアカウントのメールを保存し、次回以降の
+         トークン取得に login_hint として渡してアカウント選択を省略する */
+      function storedEmail() {
+        try { return localStorage.getItem(EMAIL_STORE_KEY) || ""; } catch (e) { return ""; }
+      }
+      function storeEmail(em) {
+        try { if (em) localStorage.setItem(EMAIL_STORE_KEY, em); } catch (e) {}
+      }
+      async function captureEmail() {
+        if (storedEmail() || !state.accessToken) return;
+        try {
+          const r = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+            headers: { "Authorization": "Bearer " + state.accessToken }
+          });
+          if (r.ok) { const j = await r.json(); if (j && j.email) storeEmail(j.email); }
+        } catch (e) { /* 取得できなくてもサインイン自体は継続する */ }
+      }
 
       function applyTokenResponse(resp) {
         state.accessToken = resp.access_token;
         state.tokenExpiry = Date.now() + (resp.expires_in ? resp.expires_in * 1000 : 3600 * 1000);
         persistToken();
-        scheduleSilentRefresh();
+        captureEmail();
       }
 
-      function ensureTokenClient(silent) {
-        if (state.tokenClient) return true;
-        if (!state.gisReady || !window.google || !google.accounts || !google.accounts.oauth2) {
-          if (!silent) toast("Googleサインインの読み込み中です。少し待って再試行してください");
-          return false;
-        }
-        state.tokenClient = google.accounts.oauth2.initTokenClient({
+      /* ---------- 認可エンドポイントへの遷移 ---------- */
+      function randomStateValue() {
+        const buf = new Uint8Array(16);
+        if (window.crypto && crypto.getRandomValues) crypto.getRandomValues(buf);
+        else for (let i = 0; i < buf.length; i++) buf[i] = Math.floor(Math.random() * 256);
+        return Array.from(buf).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+      }
+      function buildAuthUrl(promptValue) {
+        const stateVal = randomStateValue();
+        try { localStorage.setItem(STATE_STORE_KEY, stateVal); } catch (e) {}
+        const params = new URLSearchParams({
           client_id: GOOGLE_CLIENT_ID,
+          redirect_uri: REDIRECT_URI,
+          response_type: "token",
           scope: SCOPES,
-          callback: function (resp) {
-            const resolver = state._tokenResolve;
-            state._tokenResolve = null;
-            if (resp && resp.access_token) {
-              applyTokenResponse(resp);
-              if (resolver) { resolver(true); return; }
-              // 通常のサインイン操作からの応答：アプリ画面へ進む
-              if (el("appScreen").hidden) onSignedIn();
-            } else if (resolver) {
-              resolver(false);
-            }
-          },
-          error_callback: function (err) {
-            console.warn("GIS error", err);
-            const resolver = state._tokenResolve;
-            state._tokenResolve = null;
-            if (resolver) { resolver(false); return; }
-            if (!state.accessToken) showAuth("サインインできませんでした。再度お試しください。");
-          }
+          state: stateVal,
+          include_granted_scopes: "true"
         });
+        if (promptValue) params.set("prompt", promptValue);
+        const hint = storedEmail();
+        if (hint) params.set("login_hint", hint);
+        return AUTH_ENDPOINT + "?" + params.toString();
+      }
+      function redirectToAuth(promptValue) {
+        location.href = buildAuthUrl(promptValue || "");
+      }
+      /* 遷移の無限ループ防止フラグ（タブのセッション内だけ有効） */
+      function sessionFlagGet(key) {
+        try { return sessionStorage.getItem(key) === "1"; } catch (e) { return false; }
+      }
+      function sessionFlagSet(key) {
+        try { sessionStorage.setItem(key, "1"); } catch (e) {}
+      }
+      function sessionFlagClear(key) {
+        try { sessionStorage.removeItem(key); } catch (e) {}
+      }
+      /* prompt=none の自動遷移は、同じフラグでは1回だけ試す */
+      function trySilentRedirect(flagKey) {
+        if (sessionFlagGet(flagKey)) return false;
+        sessionFlagSet(flagKey);
+        redirectToAuth("none");
         return true;
       }
 
-      function requestToken(promptValue) {
-        if (!ensureTokenClient(false)) return;
-        state.tokenClient.requestAccessToken({ prompt: promptValue || "" });
+      /* ---------- 認可からの戻り処理 ---------- */
+      function parseAuthFragment() {
+        if (!location.hash || location.hash.length < 2) return null;
+        const p = new URLSearchParams(location.hash.slice(1));
+        const at = p.get("access_token");
+        const err = p.get("error");
+        if (!at && !err) return null;
+        return {
+          accessToken: at,
+          expiresIn: parseInt(p.get("expires_in") || "3600", 10),
+          state: p.get("state"),
+          error: err
+        };
+      }
+      function cleanAuthFragment() {
+        try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+      }
+      /* 戻りフラグメントを処理したら true（呼び出し側はここで起動を終える） */
+      function handleAuthReturn() {
+        const frag = parseAuthFragment();
+        if (!frag) return false;
+        cleanAuthFragment();
+        if (frag.error) {
+          // prompt=none の失敗（login_required 等）→ サインイン画面へ。
+          // そのボタンは prompt=none なしの通常遷移で認可へ進む（この場合のみ対話が発生）
+          console.warn("auth redirect error:", frag.error);
+          showAuth();
+          return true;
+        }
+        let expected = "";
+        try { expected = localStorage.getItem(STATE_STORE_KEY) || ""; localStorage.removeItem(STATE_STORE_KEY); } catch (e) {}
+        if (expected && frag.state !== expected) {
+          console.warn("auth state mismatch");
+          showAuth();
+          return true;
+        }
+        sessionFlagClear(SILENT_TRIED_KEY);
+        sessionFlagClear(REAUTH_TRIED_KEY);
+        applyTokenResponse({ access_token: frag.accessToken, expires_in: frag.expiresIn });
+        captureEmail();
+        onSignedIn();
+        return true;
       }
 
-      /* UI を出さないトークン再取得。成功/失敗を Promise<boolean> で返す */
-      function trySilentToken() {
-        return new Promise(function (resolve) {
-          if (!ensureTokenClient(true)) { resolve(false); return; }
-          let done = false;
-          const finish = function (ok) {
-            if (done) return;
-            done = true;
-            if (state._tokenResolve === finish) state._tokenResolve = null;
-            resolve(ok);
-          };
-          state._tokenResolve = finish;
-          try {
-            state.tokenClient.requestAccessToken({ prompt: "" });
-          } catch (e) { finish(false); return; }
-          setTimeout(function () { finish(false); }, 12000);
-        });
-      }
-
-      function waitForGis(timeoutMs) {
-        return new Promise(function (resolve) {
-          const start = Date.now();
-          (function check() {
-            if (state.gisReady && window.google && google.accounts && google.accounts.oauth2) { resolve(true); return; }
-            if (Date.now() - start > timeoutMs) { resolve(false); return; }
-            setTimeout(check, 200);
-          })();
-        });
-      }
-
-      /* 期限の約5分前にサイレント更新するタイマー */
-      function scheduleSilentRefresh() {
-        clearTimeout(state.refreshTimer);
-        if (!state.tokenExpiry) return;
-        const delay = Math.max(15 * 1000, state.tokenExpiry - Date.now() - 5 * 60 * 1000);
-        state.refreshTimer = setTimeout(function () {
-          if (state.preview || !state.accessToken) return;
-          trySilentToken();
-        }, delay);
+      /* API 401 用: prompt=none 遷移での再取得は1回だけ試す */
+      function tryReauthRedirect() {
+        return trySilentRedirect(REAUTH_TRIED_KEY);
       }
 
       function tokenValid() {
@@ -895,10 +1036,18 @@
       }
 
       function signOut() {
-        clearTimeout(state.refreshTimer);
-        if (state.accessToken && window.google && google.accounts && google.accounts.oauth2) {
-          google.accounts.oauth2.revoke(state.accessToken, function () {});
+        if (state.accessToken) {
+          // ベストエフォートでトークンを失効させる（失敗してもサインアウトは続行する）
+          try {
+            fetch("https://oauth2.googleapis.com/revoke", {
+              method: "POST",
+              headers: { "Content-Type": "application/x-www-form-urlencoded" },
+              body: "token=" + encodeURIComponent(state.accessToken)
+            }).catch(function () {});
+          } catch (e) {}
         }
+        sessionFlagClear(SILENT_TRIED_KEY);
+        sessionFlagClear(REAUTH_TRIED_KEY);
         state.accessToken = null; state.tokenExpiry = 0;
         clearStoredToken();
         state.calendarId = null; state.events = []; state.preview = false;
@@ -912,12 +1061,10 @@
       async function api(path, options, retried) {
         options = options || {};
         if (!tokenValid()) {
-          // サイレント再認証を1回試す。失敗したらサインイン画面に戻す
-          const ok = await trySilentToken();
-          if (!ok && !tokenValid()) {
-            showAuth();
-            throw new Error("サインインが必要です");
-          }
+          // prompt=none 遷移で再取得を1回だけ試す。失敗したらサインイン画面に戻す
+          if (tryReauthRedirect()) throw new Error("サインインのため移動します");
+          showAuth();
+          throw new Error("サインインが必要です");
         }
         const headers = Object.assign(
           { "Authorization": "Bearer " + state.accessToken },
@@ -927,7 +1074,10 @@
         const res = await fetch(API_BASE + path, Object.assign({}, options, { headers: headers }));
         if (res.status === 401 && !retried) {
           state.accessToken = null; state.tokenExpiry = 0;
-          return api(path, options, true);
+          try { localStorage.removeItem(TOKEN_STORE_KEY); localStorage.removeItem(TOKEN_EXPIRY_KEY); } catch (e) {}
+          if (tryReauthRedirect()) throw new Error("サインインのため移動します");
+          showAuth();
+          throw new Error("サインインが必要です");
         }
         if (!res.ok) {
           let msg = "APIエラー (" + res.status + ")";
@@ -1208,10 +1358,11 @@
             overflowByDay.push(ov0 > 0 ? ov0 : 0);
             if (ov0 > 0) weekHasOverflow = true;
           }
-          /* 高さ = 日付行30px + レーン(22px×段数) + 下部余白（他○件がある週はその行分） */
-          const weekH = 30 + laneCount * 22 + (weekHasOverflow ? 20 : 8);
+          /* バー置き場の高さ = レーン(18px×段数) + 他○件行(15px・ある週のみ) + 余白2px。
+             日付行(26px)は通常フローで別ブロックに確保するため、バーは構造的に日付へ重ならない */
+          const barsH = segs.length === 0 ? 6 : laneCount * 18 + (weekHasOverflow ? 15 : 2);
 
-          html += '<div class="week" style="height:' + weekH + 'px"><div class="week-days">';
+          html += '<div class="week"><div class="week-days">';
           for (let d = 0; d < 7; d++) {
             const day = addDays(weekStart, d);
             const key = dateKey(day);
@@ -1223,19 +1374,31 @@
             if (holidays.has(key)) cls.push("holiday");
             if (key === todayKey()) cls.push("today");
             if (key === state.selectedKey) cls.push("selected");
-            const overflow = overflowByDay[d];
-            const cellInner = '<span class="dnum">' + day.getDate() + "</span>"
-              + (overflow > 0 ? '<span class="more-label">他' + overflow + "件</span>" : "");
+            const cellInner = '<span class="dnum">' + day.getDate() + "</span>";
             html += interactive
               ? '<button type="button" class="' + cls.join(" ") + '" data-day="' + key + '" aria-label="' + fmtDayLabel(key) + '">' + cellInner + "</button>"
               : '<div class="' + cls.join(" ") + '" aria-hidden="true">' + cellInner + "</div>";
           }
-          html += '</div><div class="week-bars">';
+          html += '</div><div class="week-bars-area" style="height:' + barsH + 'px">';
+          for (let cd = 0; cd < 7; cd++) {
+            const cKey = dateKey(addDays(weekStart, cd));
+            const cLeft = (cd / 7 * 100);
+            const cWidth = (1 / 7 * 100);
+            if (cKey === state.selectedKey) {
+              html += '<span class="col-sel" style="left:' + cLeft + '%;width:' + cWidth + '%"></span>';
+            }
+            if (interactive) {
+              html += '<button type="button" class="col-hit" data-day="' + cKey + '" style="left:' + cLeft + '%;width:' + cWidth + '%" aria-label="' + fmtDayLabel(cKey) + '"></button>';
+            }
+            if (overflowByDay[cd] > 0) {
+              html += '<span class="more-label" style="left:calc(' + cLeft + '% + 3px)">他' + overflowByDay[cd] + "件</span>";
+            }
+          }
           drawn.forEach(function (sg) {
             const member = MEMBERS[memberOf(sg.ev)];
             const left = (sg.s / 7 * 100);
             const width = ((sg.e - sg.s + 1) / 7 * 100);
-            const top = sg.lane * 22;
+            const top = sg.lane * 18;
             const timeLabel = (!sg.ev.allDay && sg.ev.startDT && !sg.contL && (sg.e - sg.s) >= 1)
               ? '<span class="bar-time">' + fmtTime(sg.ev.startDT) + "</span>" : "";
             const barCls = "bar" + (sg.contL ? " cont-l" : "") + (sg.contR ? " cont-r" : "");
@@ -1441,8 +1604,7 @@
         const memberChips = MEMBER_ORDER.map(function (k) {
           const mb = MEMBERS[k];
           const sel = k === currentMember;
-          return '<button type="button" class="member-pick" data-pick="' + k + '" aria-pressed="' + sel + '"'
-            + ' style="' + (sel ? "border-color:" + mb.color + ";background:" + mb.color + "33;box-shadow:inset 0 0 0 1px " + mb.color : "") + '">'
+          return '<button type="button" class="member-pick" data-pick="' + k + '" aria-pressed="' + sel + '">'
             + '<i style="background:' + mb.color + '"></i>' + esc(mb.name) + "</button>";
         }).join("");
 
@@ -1489,12 +1651,8 @@
           if (!btn) return;
           pickedMember = btn.getAttribute("data-pick");
           document.querySelectorAll("#memberPicker .member-pick").forEach(function (n) {
-            const k = n.getAttribute("data-pick");
-            const on = k === pickedMember;
-            n.setAttribute("aria-pressed", on);
-            n.style.borderColor = on ? MEMBERS[k].color : "";
-            n.style.background = on ? MEMBERS[k].color + "33" : "";
-            n.style.boxShadow = on ? "inset 0 0 0 1px " + MEMBERS[k].color : "";
+            const on = n.getAttribute("data-pick") === pickedMember;
+            n.setAttribute("aria-pressed", String(on));
           });
         });
         el("formCancelBtn").addEventListener("click", closeSheet);
@@ -1583,34 +1741,68 @@
       }
 
       /* =====================================================
-         起動時の復帰フロー
-         以前にサインインしたことがある場合は、サインイン画面を
-         一瞬も出さず、まず保存トークン→サイレント更新の順に試す。
-         どちらも駄目なときだけサインイン画面を表示する。
+         起動時の復帰フロー（リダイレクト方式）
+         1) 認可からの戻りフラグメントがあれば最優先で処理する
+         2) 保存済みトークンが有効ならそのままカレンダーを表示する
+         3) 以前サインインしたことがあれば prompt=none の自動遷移を
+            セッション内で1回だけ試す（戻りは 1) で処理される）
+         4) それ以外はサインイン画面を表示する
          ===================================================== */
+      /* 表示確認用プレビュー（?preview=1 のときだけ）:
+         サインイン後の見た目をサンプル予定で再現する。通常利用には出ない */
+      function startPreview() {
+        state.preview = true;
+        el("previewBanner").hidden = false;
+        seedPreviewEvents();
+        showApp();
+      }
+      function seedPreviewEvents() {
+        const now = new Date();
+        const t = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        function dk(offset) { return dateKey(addDays(t, offset)); }
+        function mk(id, title, member, sOff, eOff, allDay, sh, eh) {
+          const sd = dk(sOff), ed = dk(eOff);
+          const ev = { id: id, title: title, memo: "サンプルのメモです。", colorId: MEMBERS[member].colorId, htmlLink: null, allDay: allDay, startDate: sd, endDate: ed, startDT: null, endDT: null };
+          if (!allDay) { ev.startDT = new Date(sd + "T" + sh + ":00"); ev.endDT = new Date(ed + "T" + eh + ":00"); }
+          return ev;
+        }
+        state.events = [
+          mk("pv1", "家族でおでかけ", "c", 0, 0, true),
+          mk("pv2", "保育園のお迎え", "a", 0, 0, false, "09:00", "10:00"),
+          mk("pv3", "買い物リスト確認", "d", 0, 0, false, "12:30", "13:00"),
+          mk("pv4", "仕事の締め切り", "b", 0, 0, false, "18:00", "19:00"),
+          mk("pv5", "誕生日旅行", "e", -2, 2, true),
+          mk("pv6", "予防接種", "a", 1, 1, false, "10:00", "11:00"),
+          mk("pv7", "実家へ行く", "c", 1, 1, true),
+          mk("pv8", "歯科健診", "d", 1, 1, false, "15:00", "16:00"),
+          mk("pv9", "結婚式に出席", "b", -6, -4, true),
+          mk("pv10", "週末キャンプ", "e", 3, 5, true)
+        ];
+        state.selectedKey = dateKey(t);
+      }
+
       async function bootstrap() {
-        restoreStoredToken();
-        if (!hasSignedInBefore()) { showAuth(); return; }
-        if (tokenValid()) {
-          scheduleSilentRefresh();
-          onSignedIn();
+        if (new URLSearchParams(location.search).get("preview") === "1" || location.hash === "#preview") {
+          startPreview();
           return;
         }
-        const gisOk = await waitForGis(10000);
-        if (gisOk) {
-          const ok = await trySilentToken();
-          if (ok) { onSignedIn(); return; }
-        }
+        // 1) 認可エンドポイントからの戻り（フラグメント）を最優先で処理する
+        if (handleAuthReturn()) return;
+        // 2) 保存済みトークンが有効なら、そのままカレンダーを表示する（認証画面に飛ばさない）
+        restoreStoredToken();
+        if (tokenValid()) { onSignedIn(); return; }
+        // 3) 以前サインインしたことがあれば、prompt=none の自動遷移を1回だけ試す
+        //    （Googleにサインイン済みで同意が生きていれば、タップなしで戻ってくる）
+        if (hasSignedInBefore() && trySilentRedirect(SILENT_TRIED_KEY)) return;
+        // 4) 初回、または自動遷移が既に失敗している場合はサインイン画面
         showAuth();
       }
 
-      /* アプリに復帰したとき、トークンが切れている／残り5分未満なら
-         裏でサイレント更新し、成功したら予定を取り直す */
+      /* アプリに復帰したとき、トークンが切れていたら prompt=none 遷移で
+         再取得を1回だけ試す（失敗時はサインイン画面のままにする） */
       function resumeCheck() {
         if (state.preview || el("appScreen").hidden) return;
-        if (!tokenValid() || tokenNearExpiry()) {
-          trySilentToken().then(function (ok) { if (ok) loadEvents(); });
-        }
+        if (!tokenValid()) tryReauthRedirect();
       }
 
       /* =====================================================
@@ -1626,7 +1818,8 @@
 
         el("googleSignInBtn").addEventListener("click", function () {
           if (!clientIdConfigured()) return;
-          requestToken("consent");
+          /* 通常遷移（prompt=none なし）で認可へ進む。対話が発生するのはこの場合のみ */
+          redirectToAuth("");
         });
         el("prevMonthBtn").addEventListener("click", function () { moveMonth(-1); });
         el("nextMonthBtn").addEventListener("click", function () { moveMonth(1); });
