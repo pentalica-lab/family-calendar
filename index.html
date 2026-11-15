@@ -938,7 +938,7 @@
       .activity-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; margin-top: 5px; }
       .activity-item .a-main { flex: 1; min-width: 0; }
       .activity-item .a-text { font-size: 0.92rem; font-weight: 700; line-height: 1.5; overflow-wrap: anywhere; }
-      .activity-item .a-time { font-size: 0.74rem; font-weight: 700; color: var(--ink-3); white-space: nowrap; margin-top: 2px; }
+      .activity-item .a-time { font-size: 0.74rem; font-weight: 700; color: var(--ink-3); white-space: normal; text-align: right; margin-top: 2px; flex: 0 1 auto; }
       .activity-item.unread .a-text { font-weight: 900; }
       .activity-item.unread { background: var(--accent-soft); border-radius: 10px; padding-left: 8px; padding-right: 8px; }
       .sum-nav { display: flex; align-items: center; gap: 4px; }
@@ -1117,10 +1117,10 @@
         <div class="sum-card push-card" id="pushCard">
           <h3>プッシュ通知</h3>
           <p class="sum-line" id="pushStatus">状態を確認しています…</p>
-          <p class="sum-line push-note">家族の予定やToDo、成長記録、買い物リストなどが追加・変更されたときに、この端末へ通知します。操作した端末自身には通知は届きません。通知を受け取るには、端末ごとにONにしてください。</p>
+          <p class="sum-line push-note">家族の予定やToDo、成長記録、買い物リストなどが追加・変更されたときに、この端末へ通知します。操作した端末自身には通知は届きません。通知を受け取るには、この端末でONにしてください。変更の通知を送る側は、サインインしていれば自動で送られます（送る側の端末で通知をONにしていなくても届きます）。プッシュが届かなかった変更も、下のお知らせ履歴には残ります。</p>
           <button type="button" class="album-open-btn" id="pushToggleBtn">通知をONにする</button>
           <button type="button" class="push-test-btn" id="pushTestBtn" disabled>テスト通知を送る</button>
-          <p class="sum-line push-note">ONにしたあと「テスト通知を送る」を押すと、家族の他の端末にテスト通知が届きます。</p>
+          <p class="sum-line push-note">「テスト通知を送る」を押すと、家族の他の端末（通知をONにしている端末）にテスト通知が届きます。自分の端末には届きません。</p>
         </div>
         <div id="summaryBody"></div>
       </section>
@@ -1173,9 +1173,9 @@
       const FALLBACK_CALENDAR_ID = "family00285169980899599750@group.calendar.google.com";
       const TARGET_CALENDAR_NAME = "ファミリー カレンダー";
       /* 祝日カレンダー（日本の祝日）の既知ID。カレンダー一覧にあればそちらを優先する。
-         太田FAM（ファミリー）カレンダーと祝日の2つを、常にまとめてデフォルト表示する。 */
+         ファミリーカレンダーと祝日の2つを、常にまとめてデフォルト表示する。 */
       const HOLIDAY_CALENDAR_ID = "ja.japanese#holiday@group.v.calendar.google.com";
-      const SCOPES = "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly";
+      const SCOPES = "openid https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly";
       /* リダイレクト方式の戻り先（GCP側に承認済みリダイレクトURIとして登録する） */
       const REDIRECT_URI = "https://pentalica-lab.github.io/family-calendar/";
       const AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -1274,6 +1274,7 @@
       /* ---------------- 状態 ---------------- */
       const state = {
         accessToken: null,
+        idToken: null,
         tokenExpiry: 0,
         calendarId: null,
         calendarName: "",
@@ -1338,6 +1339,8 @@
       const SIGNED_IN_KEY = "fc.auth.signedIn";
       const EMAIL_STORE_KEY = "fc.auth.email";
       const STATE_STORE_KEY = "fc.auth.state";
+      const ID_TOKEN_STORE_KEY = "fhIdToken";
+      const NONCE_STORE_KEY = "fc.auth.nonce";
       const SILENT_TRIED_KEY = "fc.auth.silentTried";
       const REAUTH_TRIED_KEY = "fc.auth.reauthTried";
       function persistToken() {
@@ -1347,7 +1350,33 @@
             localStorage.setItem(TOKEN_EXPIRY_KEY, String(state.tokenExpiry));
             localStorage.setItem(SIGNED_IN_KEY, "1");
           }
+          if (state.idToken) localStorage.setItem(ID_TOKEN_STORE_KEY, state.idToken);
         } catch (e) { /* 保存できない環境ではメモリ上のみで動作する */ }
+      }
+      /* Google IDトークン（本人確認専用の署名付き情報。Google APIを
+         呼ぶ権限は持たない）の読み書き。プッシュ通知サーバーへの
+         送信認可にだけ使う。認可のたびに新しいものへ更新される */
+      function storedIdToken() {
+        try { return localStorage.getItem(ID_TOKEN_STORE_KEY) || ""; } catch (e) { return ""; }
+      }
+      function storeIdToken(token) {
+        try {
+          if (token) localStorage.setItem(ID_TOKEN_STORE_KEY, token);
+          else localStorage.removeItem(ID_TOKEN_STORE_KEY);
+        } catch (e) {}
+      }
+      function currentIdToken() {
+        return state.idToken || storedIdToken() || "";
+      }
+      /* IDトークン（JWT）のペイロードを取り出す。nonce 照合用 */
+      function jwtPayload(jwt) {
+        try {
+          const parts = String(jwt || "").split(".");
+          if (parts.length !== 3) return null;
+          let b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+          while (b64.length % 4) b64 += "=";
+          return JSON.parse(window.atob(b64));
+        } catch (e) { return null; }
       }
       function clearStoredToken() {
         try {
@@ -1355,6 +1384,9 @@
           localStorage.removeItem(TOKEN_EXPIRY_KEY);
           localStorage.removeItem(SIGNED_IN_KEY);
           localStorage.removeItem(EMAIL_STORE_KEY);
+          localStorage.removeItem(ID_TOKEN_STORE_KEY);
+          localStorage.removeItem(NONCE_STORE_KEY);
+          localStorage.removeItem("fc.auth.name");
         } catch (e) {}
       }
       function restoreStoredToken() {
@@ -1364,6 +1396,7 @@
           if (t && exp > Date.now()) {
             state.accessToken = t;
             state.tokenExpiry = exp;
+            state.idToken = storedIdToken() || null;
             return true;
           }
         } catch (e) {}
@@ -1403,6 +1436,8 @@
 
       function applyTokenResponse(resp) {
         state.accessToken = resp.access_token;
+        /* IDトークンはサイレント更新を含む認可のたびに新しいものへ差し替える */
+        if (resp.id_token) state.idToken = resp.id_token;
         state.tokenExpiry = Date.now() + (resp.expires_in ? resp.expires_in * 1000 : 3600 * 1000);
         persistToken();
         captureEmail();
@@ -1417,13 +1452,18 @@
       }
       function buildAuthUrl(promptValue) {
         const stateVal = randomStateValue();
-        try { localStorage.setItem(STATE_STORE_KEY, stateVal); } catch (e) {}
+        const nonceVal = randomStateValue();
+        try {
+          localStorage.setItem(STATE_STORE_KEY, stateVal);
+          localStorage.setItem(NONCE_STORE_KEY, nonceVal);
+        } catch (e) {}
         const params = new URLSearchParams({
           client_id: GOOGLE_CLIENT_ID,
           redirect_uri: REDIRECT_URI,
-          response_type: "token",
+          response_type: "token id_token",
           scope: SCOPES,
           state: stateVal,
+          nonce: nonceVal,
           include_granted_scopes: "true"
         });
         if (promptValue) params.set("prompt", promptValue);
@@ -1457,10 +1497,12 @@
         if (!location.hash || location.hash.length < 2) return null;
         const p = new URLSearchParams(location.hash.slice(1));
         const at = p.get("access_token");
+        const idt = p.get("id_token");
         const err = p.get("error");
-        if (!at && !err) return null;
+        if (!at && !idt && !err) return null;
         return {
           accessToken: at,
+          idToken: idt,
           expiresIn: parseInt(p.get("expires_in") || "3600", 10),
           state: p.get("state"),
           error: err
@@ -1488,9 +1530,20 @@
           showAuth();
           return true;
         }
+        /* IDトークンの nonce を、認可リクエスト時に保存した値と照合する */
+        let expectedNonce = "";
+        try { expectedNonce = localStorage.getItem(NONCE_STORE_KEY) || ""; localStorage.removeItem(NONCE_STORE_KEY); } catch (e) {}
+        if (frag.idToken && expectedNonce) {
+          const pl = jwtPayload(frag.idToken);
+          if (pl && pl.nonce && pl.nonce !== expectedNonce) {
+            console.warn("auth nonce mismatch");
+            showAuth();
+            return true;
+          }
+        }
         sessionFlagClear(SILENT_TRIED_KEY);
         sessionFlagClear(REAUTH_TRIED_KEY);
-        applyTokenResponse({ access_token: frag.accessToken, expires_in: frag.expiresIn });
+        applyTokenResponse({ access_token: frag.accessToken, id_token: frag.idToken, expires_in: frag.expiresIn });
         captureEmail();
         onSignedIn();
         return true;
@@ -1521,7 +1574,7 @@
         }
         sessionFlagClear(SILENT_TRIED_KEY);
         sessionFlagClear(REAUTH_TRIED_KEY);
-        state.accessToken = null; state.tokenExpiry = 0;
+        state.accessToken = null; state.idToken = null; state.tokenExpiry = 0;
         clearStoredToken();
         state.calendarId = null; state.events = []; state.preview = false;
         closeSheet();
@@ -1602,7 +1655,7 @@
       }
 
       async function resolveCalendar() {
-        // 太田FAM（ファミリー）カレンダーと祝日カレンダーを、まとめてデフォルト表示する
+        // ファミリーカレンダーと祝日カレンダーを、まとめてデフォルト表示する
         let list = [];
         try {
           const data = await api("/users/me/calendarList?maxResults=250");
@@ -1816,7 +1869,8 @@
               { method: "POST", body: JSON.stringify(resource) });
             toast("予定を追加しました");
           }
-          sendPushNotify(existingId ? "予定が更新されました" : "予定が追加されました", form.title);
+          notifyChange(existingId ? "予定が更新されました" : "予定が追加されました",
+            notifyWhenText(form) + " " + form.title, "event");
           await loadEvents();
         } finally { setLoading(false); }
       }
@@ -1837,7 +1891,13 @@
           await api("/calendars/" + encodeURIComponent(targetCalId2) + "/events/" + encodeURIComponent(id),
             { method: "DELETE" });
           toast("予定を削除しました");
-          sendPushNotify("予定が削除されました", targetEv ? targetEv.title : "");
+          notifyChange("予定が削除されました",
+            targetEv ? notifyWhenText({
+              allDay: targetEv.allDay, startDate: targetEv.startDate, endDate: targetEv.endDate,
+              formEndDate: targetEv.formEndDate,
+              startTime: targetEv.startDT ? fmtTime(targetEv.startDT) : "",
+              endTime: targetEv.endDT ? fmtTime(targetEv.endDT) : ""
+            }) + " " + targetEv.title : "", "event");
           await loadEvents();
         } finally { setLoading(false); }
       }
@@ -2644,11 +2704,15 @@
          ・shop:   リスト全体を1イベントの本文JSONに保存
          ・config: 設定（誕生日・Googleフォト共有アルバムのリンク）を
                    1イベントの本文JSONに保存
+         ・notice: お知らせ履歴。変更のたびに1件=1イベントで記録し、
+                   全端末で同じ履歴が見える。props: at（発生時刻）/
+                   kind（種類）/ actor（変更者の表示名）、件名は
+                   summary、詳細（日時つき）は本文に保存する
          リアクションは各イベントの props.rxn（JSON）に件数を保存する
          ===================================================== */
       const HUB = {
         loaded: false, loading: false, lastLoadedAt: null,
-        growth: [], todos: [], photos: [],
+        growth: [], todos: [], photos: [], notices: [],
         shopEventId: null, shopItems: [], shopUpdated: "",
         configEventId: null, birthdays: {}, albumUrl: "",
         tab: "calendar", growthChild: "d", shopSort: "aisle",
@@ -2679,7 +2743,7 @@
       }
       function resetHubState() {
         HUB.loaded = false; HUB.loading = false; HUB.lastLoadedAt = null;
-        HUB.growth = []; HUB.todos = []; HUB.photos = [];
+        HUB.growth = []; HUB.todos = []; HUB.photos = []; HUB.notices = [];
         HUB.shopEventId = null; HUB.shopItems = []; HUB.shopUpdated = "";
         HUB.configEventId = null; HUB.birthdays = {}; HUB.albumUrl = ""; HUB.summaryYM = null;
         HUB.sumCache = {}; HUB.sumLoading = null;
@@ -2690,19 +2754,22 @@
          プッシュ通知（Cloudflare Worker 連携）
          -----------------------------------------------------
          通知サーバー（Worker）が購読情報を保管し、家族データの
-         変更時に /notify で配信する。購読は端末ごとで、利用者が
-         担当を選ぶ項目はない。送信側は通知ONかどうかに関係なく、
-         変更した端末から必ず /notify を送る（受け手がONなら届く）。
-         /notify の認可は Google サインインのアクセストークンで行い、
-         サーバーが「ファミリーカレンダーを読めるアカウントか」を
-         確認する。自分の端末への送信は excludeEndpoint（この端末の
-         購読 endpoint）で除外する。未購読の端末からは excludeEndpoint
-         を省略して送る。
+         変更時に /notify で配信する。購読（受け取り）は端末ごとで、
+         利用者が担当を選ぶ項目はない。
+         /notify の送信認可は、Google の IDトークンで行う。IDトークンは
+         本人確認専用の署名付き情報で、Google API を呼ぶ権限は持たない。
+         Worker は署名・宛先・家族メンバーのメールアドレスを検証して
+         認可する。そのため、通知を受け取る設定（ON）をしていない
+         端末からでも、サインインして変更すれば、ONにしている家族の
+         端末へ通知が届く。受け手は購読済みの全端末で、送信した端末
+         自身は excludeEndpoint（この端末が購読済みの場合のみ、その
+         購読 endpoint）で除外する。購読時に Worker が発行する端末
+         トークン（fhPushToken）は購読管理用に保持するだけで、
+         送信可否の判定には使わない。プッシュが届かなかった変更も、
+         お知らせ履歴（ft=notice）には必ず残る。
          Service Worker（sw.js）は index.html と同じ場所に置く。
          通知まわりの失敗は、予定や記録の保存を失敗扱いにしない
          よう、すべて握りつぶす（fire-and-forget）。
-         購読時にサーバーが発行する端末トークン（fhPushToken）は
-         購読管理のために保存を続けるが、送信の可否はそれに依存しない。
          共通キーのような秘密情報はページ内に一切含めない。
          ===================================================== */
       const PUSH_SERVER = "https://family-push.torotorototor0228.workers.dev";
@@ -2726,6 +2793,7 @@
         return "";
       }
       /* 購読時にサーバーが発行した端末トークンの読み書き。
+         購読管理用に保持するだけで、/notify の送信認可には使わない。
          空文字を渡すと削除する（通知OFF時） */
       function pushDeviceToken() {
         try { return localStorage.getItem(PUSH_TOKEN_STORE_KEY) || ""; } catch (e) { return ""; }
@@ -2776,17 +2844,19 @@
         } catch (e) { return ""; }
       }
       /* 家族への変更通知。失敗しても呼び出し元の保存処理には影響させない
-         （fire-and-forget）。送信条件は端末トークンや購読の有無に依存しない:
-         通知をONにしていない端末からの変更でも、受け手がONなら届くように、
-         サインイン中の Google アクセストークンで認可して必ず送信を試みる */
+         （fire-and-forget）。認可は Google の IDトークンで行い、
+         アクセストークンや端末トークンは送らない。通知の受け取りを
+         ONにしていない端末からでも、サインインしていれば送信できる。
+         IDトークンがまだ無い場合（旧セッション等）は送信できないが、
+         その場合もお知らせ履歴には記録が残る */
       function sendPushNotify(title, body) {
         if (state.preview) return;
-        const accessToken = state.accessToken;
-        if (!accessToken) return;
+        const idToken = currentIdToken();
+        if (!idToken) return;
         (async function () {
           try {
             const payload = {
-              accessToken: accessToken,
+              idToken: idToken,
               title: title,
               body: body || ""
             };
@@ -2800,16 +2870,149 @@
           } catch (e) { /* 通知の失敗は握りつぶす */ }
         })();
       }
+      /* =====================================================
+         通知文面の整形＋お知らせ履歴
+         -----------------------------------------------------
+         通知の本文には「いつの・何が」が必ず分かる情報を入れる。
+         予定は日付（曜日つき）＋時刻（終日は日付のみ）＋件名、
+         ToDoは期日、成長記録は記録日と数値、買い物は項目名。
+         変更のたびに、プッシュ送信と同時にアプリ内のお知らせ
+         履歴にも1件記録する。履歴は家族ハブと同じ共有保存方式
+         （fh=1 / ft=notice の専用イベント）で残すため、プッシュを
+         受け取っていない端末でも、後から「まとめ」で同じ履歴を
+         確認できる。履歴の保存失敗は変更自体の保存に影響させない。
+         ===================================================== */
+      /* 予定の日時テキスト。o はフォーム形式・予定形式のどちらでも
+         使えるよう {allDay, startDate, endDate, formEndDate,
+         startTime, endTime} を受け取る */
+      function notifyWhenText(o) {
+        if (!o || !o.startDate) return "";
+        const s = fmtDayLabel(o.startDate);
+        if (o.allDay) {
+          return (o.endDate && o.endDate !== o.startDate)
+            ? s + "〜" + fmtDayLabel(o.endDate) : s;
+        }
+        const st = o.startTime || "";
+        const eKey = o.formEndDate || o.endDate;
+        if (!eKey || eKey === o.startDate) return s + st;
+        return s + st + "〜" + fmtDayLabel(eKey) + (o.endTime ? " " + o.endTime : "");
+      }
+      function todoNotifyBody(title, date) {
+        return date ? title + "（期日：" + fmtDayLabel(date) + "）" : title;
+      }
+      function growthNotifyBody(childKey, date, h, w) {
+        const name = (MEMBERS[childKey] || MEMBERS.c).name;
+        let b = (date ? fmtDayLabel(date) + " " : "") + name + "の成長記録";
+        const vals = [];
+        if (h) vals.push("身長 " + parseFloat(h).toFixed(1) + "cm");
+        if (w) vals.push("体重 " + parseFloat(w).toFixed(1) + "kg");
+        if (vals.length) b += "（" + vals.join("・") + "）";
+        return b;
+      }
+      /* 変更した人の表示名。Googleアカウントのプロフィール名を
+         userinfo から取得し、セッション内（メモリ）だけに保持する
+         （永続保存はしない。取得できない場合は空文字＝履歴に
+         変更者は出さない） */
+      let actorNameCache = null;
+      async function currentActorName() {
+        if (actorNameCache !== null) return actorNameCache;
+        actorNameCache = "";
+        if (state.accessToken) {
+          try {
+            const r = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+              headers: { "Authorization": "Bearer " + state.accessToken }
+            });
+            if (r.ok) {
+              const j = await r.json();
+              const nm = (j && (j.name || j.given_name)) || "";
+              if (nm) actorNameCache = nm;
+            }
+          } catch (e) { /* 取得できなくても履歴の記録は続ける */ }
+        }
+        return actorNameCache;
+      }
+      /* 自分の端末で作った履歴は、自分の端末では未読に数えない
+         （相手の端末では通常どおり未読になる） */
+      const OWN_NOTICE_KEY = "fc.hub.ownNotices";
+      function ownNoticeIds() {
+        try { return new Set(JSON.parse(localStorage.getItem(OWN_NOTICE_KEY) || "[]")); } catch (e) { return new Set(); }
+      }
+      function addOwnNoticeId(id) {
+        if (!id) return;
+        try {
+          const s = ownNoticeIds();
+          s.add(id);
+          localStorage.setItem(OWN_NOTICE_KEY, JSON.stringify(Array.from(s).slice(-200)));
+        } catch (e) {}
+      }
+      function isOwnNotice(id) { return !!id && ownNoticeIds().has(id); }
+      /* お知らせ履歴への記録（ft=notice の専用イベントとして共有保存）。
+         失敗しても呼び出し元の保存処理には影響させない */
+      async function recordNotice(title, body, kind) {
+        const at = new Date().toISOString();
+        if (state.preview) {
+          const rec = {
+            id: "hub-" + (++state.previewSeq), type: "notice", date: todayKey(),
+            title: title, memo: body || "",
+            props: { fh: "1", ft: "notice", at: at, kind: kind || "", actor: "" },
+            created: at, updated: at
+          };
+          HUB.notices.unshift(rec);
+          addOwnNoticeId(rec.id);
+          renderHub();
+          return;
+        }
+        if (!state.calendarId || !state.accessToken) return;
+        try {
+          const actor = await currentActorName();
+          const rec = {
+            type: "notice", date: todayKey(), title: title, memo: body || "",
+            props: { at: at, kind: kind || "", actor: actor || "" }
+          };
+          const data = await api("/calendars/" + encodeURIComponent(state.calendarId) + "/events",
+            { method: "POST", body: JSON.stringify(hubEventResource(rec)) });
+          if (data && data.id) addOwnNoticeId(data.id);
+          await loadHubData();
+          pruneNotices();
+        } catch (e) { console.warn("notice record failed", e); }
+      }
+      /* 履歴が際限なく増えないよう、最新100件を超えた分は古い順に消す */
+      async function pruneNotices() {
+        if (!HUB.notices || HUB.notices.length <= 100) return;
+        const excess = HUB.notices.slice(100);
+        HUB.notices.length = 100;
+        if (state.preview) return;
+        for (let i = 0; i < excess.length; i++) {
+          try {
+            await api("/calendars/" + encodeURIComponent(state.calendarId) + "/events/" + encodeURIComponent(excess[i].id),
+              { method: "DELETE" });
+          } catch (e) { /* 消せなくても履歴表示は最新100件に絞る */ }
+        }
+      }
+      /* 変更通知の入口：プッシュ送信と履歴記録を同時に行う */
+      function notifyChange(title, body, kind) {
+        sendPushNotify(title, body);
+        recordNotice(title, body, kind);
+      }
+      function noticeColorOf(kind) {
+        return {
+          event: "#c53727", growth: "#0b8043", todo: "#e65100",
+          shop: "#2b6cb0", reaction: "#e67c73", album: "#e67c73"
+        }[kind] || "#c53727";
+      }
       async function refreshPushUI() {
         const statusEl = el("pushStatus");
         const btn = el("pushToggleBtn");
         const testBtn = el("pushTestBtn");
         if (!statusEl || !btn) return;
+        /* テスト送信は「送る側」の機能で、この端末の受け取り設定には
+           依存しない。サインイン済み（IDトークンあり）なら押せる */
+        const canSend = !!currentIdToken();
         if (!pushSupported()) {
           statusEl.textContent = "この端末・ブラウザではプッシュ通知に対応していません。iPhoneでは、ホーム画面に追加したアプリとして開くと使えます。";
           btn.disabled = true;
           btn.textContent = "通知をONにする";
-          if (testBtn) testBtn.disabled = true;
+          if (testBtn) testBtn.disabled = !canSend;
           return;
         }
         btn.disabled = false;
@@ -2818,15 +3021,15 @@
         if (Notification.permission === "denied") {
           statusEl.textContent = "状態：OFF（通知がブロックされています。端末の設定でこのアプリの通知を許可してください）";
           btn.textContent = "通知をONにする";
-          if (testBtn) testBtn.disabled = true;
+          if (testBtn) testBtn.disabled = !canSend;
           return;
         }
         if (sub) {
           statusEl.textContent = "状態：ON（家族の変更がこの端末に通知されます）";
           btn.textContent = "通知をOFFにする";
           if (testBtn) testBtn.disabled = false;
-          /* 購読済みでも端末トークンが無い端末（旧方式でONにした等）は、
-             購読を再送してトークンを取り直す */
+          /* 購読管理用の端末トークンが無い端末（旧方式でONにした等）は、
+             購読を再送してトークンを取り直す（送信認可には使わない） */
           if (!pushDeviceToken()) {
             pushPost("/subscribe", { subscription: sub.toJSON(), member: pushAutoMemberName() })
               .then(function (data) { if (data && data.token) storePushToken(data.token); })
@@ -2835,23 +3038,23 @@
         } else {
           statusEl.textContent = "状態：OFF（家族の変更はこの端末に通知されません）";
           btn.textContent = "通知をONにする";
-          if (testBtn) testBtn.disabled = true;
+          if (testBtn) testBtn.disabled = !canSend;
         }
       }
       /* テスト通知：家族の他の端末へ送り、届くか確認する。
-         送信は端末トークンやこの端末の購読の有無に依存しない
-         （Google アクセストークンで認可）。この端末が購読済みなら
-         excludeEndpoint で自分自身を除外する */
+         認可は Google の IDトークンで行い、アクセストークンや
+         端末トークンは送らない。この端末の受け取り設定（ON/OFF）に
+         関わらず、サインインしていれば送れる。excludeEndpoint は
+         この端末が購読済みの場合のみ付け、自分自身を除外する */
       async function sendTestPush() {
         if (state.preview) { toast("プレビューではテスト通知を送れません"); return; }
-        if (!pushSupported()) { toast("この端末・ブラウザではプッシュ通知に対応していません"); return; }
         const btn = el("pushTestBtn");
-        const accessToken = state.accessToken;
-        if (!accessToken) { toast("サインインが必要です。再度サインインしてください"); return; }
+        const idToken = currentIdToken();
+        if (!idToken) { toast("サインイン情報の更新が必要です。アプリを開き直すか、サインインし直してください"); return; }
         try {
           if (btn) { btn.disabled = true; btn.textContent = "送信中…"; }
           const payload = {
-            accessToken: accessToken,
+            idToken: idToken,
             title: "テスト通知",
             body: "プッシュ通知が届きました。設定は完了です。"
           };
@@ -2944,7 +3147,7 @@
         };
       }
       function ingestHubItems(items) {
-        HUB.growth = []; HUB.todos = []; HUB.photos = [];
+        HUB.growth = []; HUB.todos = []; HUB.photos = []; HUB.notices = [];
         HUB.shopEventId = null; HUB.shopItems = []; HUB.shopUpdated = "";
         HUB.configEventId = null; HUB.birthdays = {}; HUB.albumUrl = "";
         (items || []).forEach(function (item) {
@@ -2953,6 +3156,7 @@
           if (rec.type === "growth") HUB.growth.push(rec);
           else if (rec.type === "todo") HUB.todos.push(rec);
           else if (rec.type === "photo") HUB.photos.push(rec);
+          else if (rec.type === "notice") HUB.notices.push(rec);
           else if (rec.type === "shop") {
             HUB.shopEventId = rec.id; HUB.shopUpdated = rec.updated;
             try { const arr = JSON.parse(rec.memo || "[]"); if (Array.isArray(arr)) HUB.shopItems = arr; } catch (e) {}
@@ -2967,6 +3171,11 @@
         });
         HUB.growth.sort(function (a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
         HUB.photos.sort(function (a, b) { return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); });
+        /* お知らせ履歴は発生時刻の新しい順 */
+        HUB.notices.sort(function (a, b) {
+          const ta = a.props.at || a.created || "", tb = b.props.at || b.created || "";
+          return tb < ta ? -1 : (tb > ta ? 1 : 0);
+        });
       }
       async function loadHubData(manual) {
         if (state.preview) {
@@ -3125,7 +3334,11 @@
         refreshRxnContainers(rec);
         try {
           await hubUpdate(rec);
-          if (added) sendPushNotify("新しいリアクションがつきました", rec.title || "家族の記録");
+          if (added) notifyChange("新しいリアクションがつきました",
+            rec.type === "growth"
+              ? growthNotifyBody(rec.props.child || "d", rec.date, rec.props.h, rec.props.w)
+              : (rec.type === "todo" ? todoNotifyBody(rec.title, rec.date) : (rec.title || "家族の記録")),
+            "reaction");
         }
         catch (e) { toast("リアクションに失敗しました：" + friendlyErrorMessage(e)); }
       }
@@ -3177,7 +3390,7 @@
         const badge = el("tabBadgeSummary");
         if (!badge) return;
         const seen = hubSeenAt();
-        const n = activityItems().filter(function (a) { return a.t && a.t > seen; }).length;
+        const n = activityItems().filter(function (a) { return a.t && a.t > seen && !isOwnNotice(a.id); }).length;
         badge.hidden = n === 0 || HUB.tab === "summary";
         badge.textContent = n > 9 ? "9+" : String(n);
       }
@@ -3381,7 +3594,7 @@
               delBtn.classList.add("armed"); delBtn.textContent = "本当に削除する"; return;
             }
             delBtn.disabled = true;
-            try { await hubDelete(rec); closeSheet(); toast("記録を削除しました"); sendPushNotify("成長記録が削除されました", rec.title); }
+            try { await hubDelete(rec); closeSheet(); toast("記録を削除しました"); notifyChange("成長記録が削除されました", growthNotifyBody(rec.props.child || "d", rec.date, rec.props.h, rec.props.w), "growth"); }
             catch (e) { toast("削除に失敗しました：" + friendlyErrorMessage(e)); delBtn.disabled = false; }
           });
         }
@@ -3406,7 +3619,7 @@
               rec.title = (MEMBERS[pickedChild] || MEMBERS.c).name + "の成長記録";
               await hubUpdate(rec);
               toast("記録を更新しました");
-              sendPushNotify("成長記録が更新されました", rec.title);
+              notifyChange("成長記録が更新されました", growthNotifyBody(pickedChild, date, h, w), "growth");
             } else {
               await hubCreate({
                 type: "growth", date: date, memo: memo,
@@ -3415,7 +3628,7 @@
               });
               HUB.growthChild = pickedChild;
               toast("記録を追加しました");
-              sendPushNotify("成長記録が追加されました", (MEMBERS[pickedChild] || MEMBERS.c).name + "の成長記録");
+              notifyChange("成長記録が追加されました", growthNotifyBody(pickedChild, date, h, w), "growth");
             }
             closeSheet();
             renderHub();
@@ -3443,7 +3656,7 @@
       async function toggleTodoDone(rec) {
         if (rec.props.done === "1") {
           rec.props.done = "0";
-          try { await hubUpdate(rec); toast("未完了に戻しました"); sendPushNotify("ToDoが未完了に戻されました", rec.title); }
+          try { await hubUpdate(rec); toast("未完了に戻しました"); notifyChange("ToDoが未完了に戻されました", todoNotifyBody(rec.title, rec.date), "todo"); }
           catch (e) { toast("更新に失敗しました：" + friendlyErrorMessage(e)); }
           return;
         }
@@ -3457,7 +3670,7 @@
             });
           }
           toast("完了しました");
-          sendPushNotify("ToDoが完了しました", rec.title);
+          notifyChange("ToDoが完了しました", todoNotifyBody(rec.title, rec.date), "todo");
         } catch (e) { toast("更新に失敗しました：" + friendlyErrorMessage(e)); }
       }
       function todoCardHtml(r) {
@@ -3556,7 +3769,7 @@
               delBtn.classList.add("armed"); delBtn.textContent = "本当に削除する"; return;
             }
             delBtn.disabled = true;
-            try { await hubDelete(rec); closeSheet(); toast("ToDoを削除しました"); sendPushNotify("ToDoが削除されました", rec.title); }
+            try { await hubDelete(rec); closeSheet(); toast("ToDoを削除しました"); notifyChange("ToDoが削除されました", todoNotifyBody(rec.title, rec.date), "todo"); }
             catch (e) { toast("削除に失敗しました：" + friendlyErrorMessage(e)); delBtn.disabled = false; }
           });
         }
@@ -3577,14 +3790,14 @@
               rec.props.asg = pickedAsg; rec.props.rep = repVal;
               await hubUpdate(rec);
               toast("ToDoを更新しました");
-              sendPushNotify("ToDoが更新されました", title);
+              notifyChange("ToDoが更新されました", todoNotifyBody(title, due), "todo");
             } else {
               await hubCreate({
                 type: "todo", title: title, date: due, memo: "",
                 props: { asg: pickedAsg, done: "0", rep: repVal }
               });
               toast("ToDoを追加しました");
-              sendPushNotify("ToDoが追加されました", title);
+              notifyChange("ToDoが追加されました", todoNotifyBody(title, due), "todo");
             }
             closeSheet();
             renderHub();
@@ -3655,7 +3868,7 @@
             done: false, addedAt: new Date().toISOString(), boughtAt: ""
           });
           hubSaveShop();
-          sendPushNotify("買い物リストに追加しました", name);
+          notifyChange("買い物リストに追加しました", name, "shop");
         }
         el("shopAddBtn").addEventListener("click", addFromForm);
         el("shopNameInput").addEventListener("keydown", function (e) {
@@ -3674,7 +3887,7 @@
             it.done = !it.done;
             it.boughtAt = it.done ? new Date().toISOString() : "";
             hubSaveShop();
-            if (it.done) sendPushNotify("買い物を購入しました", it.name);
+            if (it.done) notifyChange("買い物を購入しました", it.name, "shop");
           });
         });
         body.querySelectorAll("[data-shop-del]").forEach(function (btn) {
@@ -3682,7 +3895,7 @@
             const delItem = HUB.shopItems.find(function (x) { return x.id === btn.getAttribute("data-shop-del"); });
             HUB.shopItems = HUB.shopItems.filter(function (x) { return x.id !== btn.getAttribute("data-shop-del"); });
             hubSaveShop();
-            if (delItem) sendPushNotify("買い物リストから削除しました", delItem.name);
+            if (delItem) notifyChange("買い物リストから削除しました", delItem.name, "shop");
           });
         });
         const clearBtn = el("shopClearHistory");
@@ -3772,7 +3985,7 @@
           try {
             await hubSaveConfig();
             toast("アルバムのリンクを設定しました");
-            sendPushNotify("アルバムのリンクが設定されました", "Googleフォトの共有アルバム");
+            notifyChange("アルバムのリンクが設定されました", "Googleフォトの共有アルバム", "album");
             closeSheet();
             renderHub();
           } catch (e) {
@@ -3825,6 +4038,22 @@
          まとめ（お知らせ＋月次自動サマリー）
          ===================================================== */
       function activityItems() {
+        /* お知らせ履歴（ft=notice）があれば、それを正とする。変更の
+           たびに変更した端末が記録する共有データなので、削除された
+           変更も含めて新しい順に最大50件を返す。履歴がまだ無い
+           （旧バージョンだけが使われていた等）場合のみ、下の
+           現在データからの推定にフォールバックする */
+        if (HUB.notices && HUB.notices.length) {
+          return HUB.notices.map(function (r) {
+            return {
+              id: r.id,
+              t: r.props.at || r.created || r.updated,
+              color: noticeColorOf(r.props.kind),
+              text: r.title + (r.memo ? "：" + r.memo : ""),
+              actor: r.props.actor || ""
+            };
+          }).slice(0, 50);
+        }
         const items = [];
         HUB.growth.forEach(function (r) {
           const m = MEMBERS[r.props.child] || MEMBERS.c;
@@ -3890,14 +4119,14 @@
         const acts = activityItems();
         let html = '<h3 class="hub-h3" style="margin-top:2px">お知らせ</h3><div class="sum-card"><div class="activity-list">';
         if (!acts.length) {
-          html += '<p class="hub-empty" style="padding:4px 0">新しいお知らせはありません</p>';
+          html += '<p class="hub-empty" style="padding:4px 0">お知らせはまだありません</p>';
         }
         acts.forEach(function (a) {
-          const unread = a.t && a.t > seen;
+          const unread = a.t && a.t > seen && !isOwnNotice(a.id);
           html += '<div class="activity-item' + (unread ? " unread" : "") + '">'
             + '<span class="activity-dot" style="background:' + a.color + '"></span>'
             + '<span class="a-main"><span class="a-text">' + esc(a.text) + "</span></span>"
-            + '<span class="a-time">' + esc(relTime(a.t)) + "</span></div>";
+            + '<span class="a-time">' + esc(relTime(a.t)) + (a.actor ? " ・ " + esc(a.actor) + "さん" : "") + "</span></div>";
         });
         html += "</div></div>";
         /* 月次サマリー */
@@ -4078,6 +4307,20 @@
           { id: "it-pv4", name: "鶏もも肉", aisle: "精肉", done: false, addedAt: isoHoursAgo(9), boughtAt: "" },
           { id: "it-pv5", name: "食パン", aisle: "パン", done: false, addedAt: isoHoursAgo(8), boughtAt: "" },
           { id: "it-pv6", name: "洗濯洗剤", aisle: "日用品", done: true, addedAt: isoHoursAgo(30), boughtAt: isoHoursAgo(6) }
+        ];
+        HUB.notices = [
+          { id: "hub-pv-n1", type: "notice", date: dk(0), title: "予定が追加されました",
+            memo: fmtDayLabel(dk(10)) + " 9:15 歯科健診",
+            props: { fh: "1", ft: "notice", at: isoHoursAgo(2), kind: "event", actor: "" },
+            created: isoHoursAgo(2), updated: isoHoursAgo(2) },
+          { id: "hub-pv-n2", type: "notice", date: dk(0), title: "ToDoが完了しました",
+            memo: "予防接種の予約（期日：" + fmtDayLabel(dk(-3)) + "）",
+            props: { fh: "1", ft: "notice", at: isoHoursAgo(5), kind: "todo", actor: "" },
+            created: isoHoursAgo(5), updated: isoHoursAgo(5) },
+          { id: "hub-pv-n3", type: "notice", date: dk(-1), title: "買い物リストに追加しました",
+            memo: "洗濯洗剤",
+            props: { fh: "1", ft: "notice", at: isoHoursAgo(30), kind: "shop", actor: "" },
+            created: isoHoursAgo(30), updated: isoHoursAgo(30) }
         ];
         HUB.shopEventId = "hub-pv-shop";
         HUB.shopUpdated = isoHoursAgo(6);
