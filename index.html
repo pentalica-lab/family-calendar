@@ -976,8 +976,6 @@
       /* ---------- プッシュ通知設定（まとめ画面） ---------- */
       .push-card h3 { font-size: 0.98rem; font-weight: 900; margin: 0 0 6px; }
       .push-note { color: var(--ink-2); font-size: 0.85rem; }
-      .push-member-row { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; margin: 12px 0 4px; }
-      .push-member-label { font-size: 0.85rem; font-weight: 900; color: var(--ink-2); padding-top: 10px; }
       .push-card .album-open-btn { margin-top: 12px; }
       .push-card .album-open-btn:disabled { opacity: 0.55; }
       .push-test-btn {
@@ -1119,14 +1117,10 @@
         <div class="sum-card push-card" id="pushCard">
           <h3>プッシュ通知</h3>
           <p class="sum-line" id="pushStatus">状態を確認しています…</p>
-          <p class="sum-line push-note">家族の予定やToDo、成長記録、買い物リストなどが追加・変更されたときに、この端末へ通知します。自分の操作では自分の端末に通知は届きません。通知を受け取るには、端末ごとにONにしてください。</p>
-          <div class="push-member-row">
-            <span class="push-member-label">わたしは</span>
-            <div class="member-picker" id="pushMemberPicker"></div>
-          </div>
+          <p class="sum-line push-note">家族の予定やToDo、成長記録、買い物リストなどが追加・変更されたときに、この端末へ通知します。操作した端末自身には通知は届きません。通知を受け取るには、端末ごとにONにしてください。</p>
           <button type="button" class="album-open-btn" id="pushToggleBtn">通知をONにする</button>
           <button type="button" class="push-test-btn" id="pushTestBtn" disabled>テスト通知を送る</button>
-          <p class="sum-line push-note">ONにしたあと「テスト通知を送る」を押すと、届くかどうかをこの端末で確認できます（テスト通知は家族全員の端末に届きます）。</p>
+          <p class="sum-line push-note">ONにしたあと「テスト通知を送る」を押すと、家族の他の端末にテスト通知が届きます。</p>
         </div>
         <div id="summaryBody"></div>
       </section>
@@ -2696,10 +2690,10 @@
          プッシュ通知（Cloudflare Worker 連携）
          -----------------------------------------------------
          通知サーバー（Worker）が購読情報を保管し、家族データの
-         変更時に /notify で全端末へ配信する。購読は端末ごと。
-         「わたしは」で選んだ担当が、この端末の持ち主として
-         サーバーに登録され、自分の操作では自分に通知が届かない
-         （/notify の excludeMember に同じ表示名を渡す）。
+         変更時に /notify で配信する。購読は端末ごとで、利用者が
+         担当を選ぶ項目はない。/notify では端末トークンだけを渡し、
+         サーバーがトークンから送信元端末を特定して、その端末
+         自身には自動で送らない（操作した端末に通知しない）。
          Service Worker（sw.js）は index.html と同じ場所に置く。
          通知まわりの失敗は、予定や記録の保存を失敗扱いにしない
          よう、すべて握りつぶす（fire-and-forget）。
@@ -2709,23 +2703,23 @@
          ===================================================== */
       const PUSH_SERVER = "https://family-push.torotorototor0228.workers.dev";
       const PUSH_VAPID_PUBLIC_KEY = "BCXbO8oHoLITrtkCfJE_yfupuSV_fAQuOZYQvSBsdthKBa0RWbpEKzdzGUasV0KUQAhnt-VHcLqxEVcw-IbdU8g";
-      const PUSH_MEMBER_STORE_KEY = "fc.push.member";
       const PUSH_TOKEN_STORE_KEY = "fhPushToken";
+      /* 旧担当ピッカーで保存した担当キーはもう使わないので掃除する */
+      try { localStorage.removeItem("fc.push.member"); } catch (e) {}
       let pushRegPromise = null;
 
       function pushSupported() {
         return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
       }
-      function pushMemberKey() {
-        try {
-          const k = localStorage.getItem(PUSH_MEMBER_STORE_KEY);
-          if (k && MEMBERS[k]) return k;
-        } catch (e) {}
-        return "c";
-      }
-      function pushMemberName() {
-        const m = MEMBERS[pushMemberKey()];
-        return m ? m.name : "";
+      /* /subscribe の member は利用者に選ばせない。アプリ内で
+         サインイン中メンバーの表示名が分かる場合だけ自動で入れ、
+         分からなければ空文字にする（サーバー側の宛先判定は
+         端末トークン／購読エンドポイントで行われるため、
+         member は表示用のラベルにすぎない）。現状アプリには
+         Googleアカウントと家族スロットを結ぶ確実な対応がない
+         ため、常に空文字を返す */
+      function pushAutoMemberName() {
+        return "";
       }
       /* 購読時にサーバーが発行した端末トークンの読み書き。
          空文字を渡すと削除する（通知OFF時） */
@@ -2782,29 +2776,16 @@
             body: JSON.stringify({
               token: token,
               title: title,
-              body: body || "",
-              excludeMember: pushMemberName()
+              body: body || ""
             })
           }).catch(function () {});
         } catch (e) { /* 通知の失敗は握りつぶす */ }
-      }
-      function renderPushMemberPicker() {
-        const wrap = el("pushMemberPicker");
-        if (!wrap) return;
-        const cur = pushMemberKey();
-        wrap.innerHTML = MEMBER_ORDER.map(function (k) {
-          const mb = MEMBERS[k];
-          const sel = k === cur;
-          return '<button type="button" class="member-pick" data-pick="' + k + '" data-push-member="' + k + '" aria-pressed="' + sel + '">'
-            + '<i style="background:' + mb.color + '"></i>' + esc(mb.name) + "</button>";
-        }).join("");
       }
       async function refreshPushUI() {
         const statusEl = el("pushStatus");
         const btn = el("pushToggleBtn");
         const testBtn = el("pushTestBtn");
         if (!statusEl || !btn) return;
-        renderPushMemberPicker();
         if (!pushSupported()) {
           statusEl.textContent = "この端末・ブラウザではプッシュ通知に対応していません。iPhoneでは、ホーム画面に追加したアプリとして開くと使えます。";
           btn.disabled = true;
@@ -2822,13 +2803,13 @@
           return;
         }
         if (sub) {
-          statusEl.textContent = "状態：ON（「" + pushMemberName() + "」として、この端末で通知を受け取ります）";
+          statusEl.textContent = "状態：ON（家族の変更がこの端末に通知されます）";
           btn.textContent = "通知をOFFにする";
           if (testBtn) testBtn.disabled = false;
           /* 購読済みでも端末トークンが無い端末（旧方式でONにした等）は、
              購読を再送してトークンを取り直す */
           if (!pushDeviceToken()) {
-            pushPost("/subscribe", { subscription: sub.toJSON(), member: pushMemberName() })
+            pushPost("/subscribe", { subscription: sub.toJSON(), member: pushAutoMemberName() })
               .then(function (data) { if (data && data.token) storePushToken(data.token); })
               .catch(function () {});
           }
@@ -2838,7 +2819,7 @@
           if (testBtn) testBtn.disabled = true;
         }
       }
-      /* テスト通知：自分を除外せず全端末へ送り、この端末に届くか確認する */
+      /* テスト通知：家族の他の端末へ送り、届くか確認する（送信元端末はサーバーが自動で除外する） */
       async function sendTestPush() {
         if (state.preview) { toast("プレビューではテスト通知を送れません"); return; }
         if (!pushSupported()) { toast("この端末・ブラウザではプッシュ通知に対応していません"); return; }
@@ -2856,8 +2837,7 @@
             body: JSON.stringify({
               token: token,
               title: "テスト通知",
-              body: "プッシュ通知が届きました。設定は完了です。",
-              excludeMember: ""
+              body: "プッシュ通知が届きました。設定は完了です。"
             })
           });
           if (!res.ok) throw new Error("push server error " + res.status);
@@ -2894,7 +2874,7 @@
               applicationServerKey: urlBase64ToUint8Array(PUSH_VAPID_PUBLIC_KEY)
             });
           }
-          const subData = await pushPost("/subscribe", { subscription: sub.toJSON(), member: pushMemberName() });
+          const subData = await pushPost("/subscribe", { subscription: sub.toJSON(), member: pushAutoMemberName() });
           if (subData && subData.token) storePushToken(subData.token);
           toast("プッシュ通知をONにしました");
         } catch (e) {
@@ -4100,7 +4080,7 @@
         el("growthAddBtn").addEventListener("click", function () { openGrowthForm(null); });
         el("todoAddBtn").addEventListener("click", function () { openTodoForm(null); });
         el("albumLinkBtn").addEventListener("click", function () { openAlbumLinkForm(); });
-        /* プッシュ通知のON/OFFと「わたしは」の選択（まとめ画面の設定カード） */
+        /* プッシュ通知のON/OFF（まとめ画面の設定カード） */
         const pushToggleBtn = el("pushToggleBtn");
         if (pushToggleBtn) pushToggleBtn.addEventListener("click", async function () {
           let sub = null;
@@ -4109,23 +4089,6 @@
         });
         const pushTestBtn = el("pushTestBtn");
         if (pushTestBtn) pushTestBtn.addEventListener("click", function () { sendTestPush(); });
-        const pushPicker = el("pushMemberPicker");
-        if (pushPicker) pushPicker.addEventListener("click", function (e) {
-          const b = e.target.closest("[data-push-member]");
-          if (!b) return;
-          try { localStorage.setItem(PUSH_MEMBER_STORE_KEY, b.getAttribute("data-push-member")); } catch (err) {}
-          renderPushMemberPicker();
-          refreshPushUI();
-          /* 購読中なら、サーバー側の宛先名も新しい担当で登録し直す。
-             返ってきた端末トークンで保存分も上書きする */
-          pushGetSubscription().then(function (sub) {
-            if (sub) {
-              pushPost("/subscribe", { subscription: sub.toJSON(), member: pushMemberName() })
-                .then(function (data) { if (data && data.token) storePushToken(data.token); })
-                .catch(function () {});
-            }
-          }).catch(function () {});
-        });
         /* リアクションは画面・シートの両方に現れるため document で委譲する */
         document.addEventListener("click", function (e) {
           const rb = e.target.closest("[data-rxn]");
