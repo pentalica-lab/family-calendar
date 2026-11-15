@@ -433,12 +433,7 @@
       }
       input.dt-input[type="date"] { max-width: 10em; }
       input.dt-input[type="time"] { max-width: 7.4em; }
-      .details-toggle {
-        width: 100%; display: flex; align-items: center; justify-content: space-between;
-        padding: 13px 0; font-weight: 900; font-size: 0.92rem; color: var(--ink-2);
-        border-bottom: 1px solid var(--line); min-height: 2.75rem;
-      }
-      .memo-area { padding-top: 12px; }
+      .memo-area { padding-top: 14px; }
       .detail-chip {
         display: inline-flex; align-items: center; gap: 7px; border-radius: 999px;
         padding: 5px 13px 5px 9px; font-weight: 900; font-size: 0.86rem; color: #fff;
@@ -749,6 +744,226 @@
       .day-event-del.armed { background: #9c1f14; }
       .day-event-del:disabled { opacity: 0.6; }
       @media (prefers-reduced-motion: reduce) { .day-event-swipe { transition: none; } }
+
+      /* =====================================================
+         家族ハブ（成長記録 / ToDo / 買い物 / アルバム / まとめ）
+         下部タブバーで画面を切り替える。データはファミリー
+         カレンダー内の専用イベントに保存され、夫婦で共有される
+         ===================================================== */
+      .cal-switch-btn {
+        justify-self: start; display: inline-flex; align-items: center; gap: 5px;
+        font-weight: 800; font-size: 0.78rem; color: var(--ink);
+        padding: 4px 8px; border-radius: 8px; min-height: 2rem !important;
+        max-width: 44vw;
+      }
+      .cal-switch-btn span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .cal-switch-btn:active { background: var(--surface-2); }
+      .density-row { justify-content: flex-start; }
+      .density-row .spacer { flex: 1; }
+
+      .tabbar {
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 32;
+        display: grid; grid-template-columns: repeat(6, 1fr);
+        background: color-mix(in srgb, var(--bg) 94%, transparent);
+        backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        border-top: 1px solid var(--line);
+        padding: 6px 2px calc(6px + env(safe-area-inset-bottom));
+      }
+      .tab-btn {
+        position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 2px; padding: 5px 0 3px; border-radius: 12px; min-height: 3.1rem !important;
+        color: var(--ink-2); font-size: 0.62rem; font-weight: 700; line-height: 1.15;
+      }
+      .tab-btn svg { width: 23px; height: 23px; flex: none; }
+      .tab-btn.active { color: var(--accent); font-weight: 900; }
+      .tab-btn:active { background: var(--surface-2); }
+      .tab-badge {
+        position: absolute; top: 2px; right: calc(50% - 21px);
+        min-width: 1.05rem; height: 1.05rem; border-radius: 999px; padding: 0 4px;
+        background: #c53727; color: #fff; font-size: 0.62rem; font-weight: 900;
+        display: inline-flex; align-items: center; justify-content: center;
+        border: 2px solid var(--bg);
+      }
+      .fab-center { bottom: calc(84px + env(safe-area-inset-bottom)); }
+      .day-panel { margin-bottom: 150px; }
+
+      .hub-view { max-width: 1060px; margin: 0 auto; padding: 10px 12px 150px; }
+      .hub-head { display: flex; align-items: center; gap: 8px; margin: 4px 0 2px; }
+      .hub-title { font-size: 1.28rem; font-weight: 900; margin: 0; flex: 1; }
+      .hub-refresh {
+        width: 2.5rem; height: 2.5rem; border-radius: 50%; flex: none;
+        display: inline-flex; align-items: center; justify-content: center;
+        color: var(--ink-2); font-size: 1.15rem;
+      }
+      .hub-refresh:active { background: var(--surface-2); }
+      .hub-add {
+        background: #c53727; color: #fff; font-weight: 900; font-size: 0.9rem;
+        border-radius: 999px; padding: 8px 16px; min-height: 2.6rem !important; flex: none;
+      }
+      .hub-sync { font-size: 0.74rem; font-weight: 700; color: var(--ink-3); margin: 0 0 12px; display: flex; align-items: center; gap: 6px; }
+      .hub-sync .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: #0b8043; flex: none; }
+      .hub-h3 { font-size: 0.98rem; font-weight: 900; margin: 20px 0 8px; }
+      .hub-empty { color: var(--ink-2); font-size: 0.9rem; line-height: 1.7; padding: 16px 6px; }
+      .btn-mini {
+        border: 1.5px solid var(--line); background: var(--surface); color: var(--ink);
+        border-radius: 999px; padding: 5px 14px; font-weight: 800; font-size: 0.82rem; min-height: 2.2rem !important;
+      }
+      .btn-mini[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+      /* 子ども切替チップ */
+      .child-chips { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 12px; }
+      .child-chip {
+        display: inline-flex; align-items: center; gap: 7px;
+        border: 2px solid var(--line); background: var(--surface); color: var(--ink);
+        border-radius: 999px; padding: 7px 14px 7px 10px; font-weight: 800; font-size: 0.92rem; min-height: 2.6rem !important;
+      }
+      .child-chip i { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+
+      /* 数値カード */
+      .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+      @media (max-width: 560px) { .stat-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; } }
+      .stat-card {
+        background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+        padding: 10px 12px; min-width: 0;
+      }
+      .stat-card .s-label { font-size: 0.72rem; font-weight: 800; color: var(--ink-2); }
+      .stat-card .s-value { font-size: 1.22rem; font-weight: 900; margin-top: 2px; white-space: nowrap; }
+      .stat-card .s-value small { font-size: 0.78rem; font-weight: 800; color: var(--ink-2); }
+      .stat-card .s-sub { font-size: 0.72rem; font-weight: 700; color: var(--ink-2); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .stat-card .s-sub .up { color: #0b8043; }
+
+      /* 成長曲線カード */
+      .chart-card {
+        background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+        padding: 12px 12px 8px; margin-bottom: 10px;
+      }
+      .chart-card h3 { font-size: 0.92rem; font-weight: 900; margin: 0 0 4px; }
+      .chart-card svg { width: 100%; height: auto; display: block; }
+      .birth-row {
+        display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap;
+        background: var(--surface-2); border-radius: 12px; padding: 10px 12px; margin-top: 12px;
+      }
+      .birth-row label { font-size: 0.78rem; font-weight: 800; color: var(--ink-2); display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 11em; }
+      .birth-row .dt-input { background: var(--surface); }
+
+      /* 記録・ToDo・買い物の行 */
+      .record-list, .todo-list, .shop-list { display: flex; flex-direction: column; gap: 8px; }
+      .record-row, .todo-row, .shop-row {
+        background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+        padding: 10px 12px;
+      }
+      .record-main, .todo-main { display: block; width: 100%; text-align: left; padding: 0; min-height: 0 !important; }
+      .record-date { font-size: 0.78rem; font-weight: 800; color: var(--ink-2); }
+      .record-vals { display: block; font-weight: 900; font-size: 1rem; margin-top: 1px; }
+      .record-memo { display: block; font-size: 0.86rem; color: var(--ink-2); margin-top: 2px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+      .todo-row, .shop-row { display: flex; align-items: flex-start; gap: 10px; }
+      .todo-row .todo-main, .shop-row .shop-main { flex: 1; min-width: 0; }
+      .todo-title { display: block; font-weight: 800; font-size: 0.97rem; line-height: 1.45; overflow-wrap: anywhere; }
+      .todo-row.done .todo-title, .shop-row.done .todo-title { color: var(--ink-3); text-decoration: line-through; }
+      .todo-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.78rem; font-weight: 700; color: var(--ink-2); margin-top: 3px; }
+      .todo-meta .overdue { color: #c62f22; font-weight: 900; }
+      .asg-chip { display: inline-flex; align-items: center; gap: 5px; font-weight: 800; }
+      .asg-chip i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+      .check-circle {
+        width: 28px; height: 28px; border-radius: 50%; flex: none; margin-top: 1px;
+        border: 2.2px solid var(--ink-3); color: transparent;
+        display: inline-flex; align-items: center; justify-content: center;
+        font-size: 0.95rem; font-weight: 900; min-height: 28px !important; padding: 0;
+      }
+      .check-circle.done { background: #0b8043; border-color: #0b8043; color: #fff; }
+      .check-circle:active { transform: scale(0.92); }
+      .shop-aisle-tag {
+        font-size: 0.7rem; font-weight: 800; color: var(--ink-2);
+        background: var(--surface-2); border-radius: 999px; padding: 2px 8px; flex: none;
+      }
+      .shop-group-h { font-size: 0.8rem; font-weight: 900; color: var(--ink-2); margin: 14px 0 6px; }
+      .shop-group-h:first-child { margin-top: 2px; }
+      .shop-undo { color: var(--m-b); font-weight: 800; font-size: 0.8rem; padding: 4px 6px; flex: none; }
+      .todo-line { display: flex; gap: 10px; align-items: flex-start; }
+      .todo-line .todo-main { flex: 1; min-width: 0; }
+      @media (prefers-color-scheme: dark) { .shop-undo { color: #6fc3ee; } }
+
+      /* リアクション */
+      .rxn-row { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+      .rxn-btn {
+        display: inline-flex; align-items: center; gap: 5px;
+        border: 1.5px solid var(--line); background: var(--surface);
+        border-radius: 999px; padding: 3px 11px 3px 9px; font-size: 0.85rem; font-weight: 800;
+        min-height: 2rem !important; color: var(--ink-2);
+      }
+      .rxn-btn .rxn-count { font-size: 0.78rem; }
+      .rxn-btn.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+      /* 買い物：追加フォームと並び替え */
+      .shop-add {
+        display: flex; gap: 8px; flex-wrap: wrap; align-items: stretch;
+        background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 10px; margin-bottom: 6px;
+      }
+      .shop-add .shop-name-input { flex: 1 1 9em; min-width: 0; }
+      .shop-add select.form-input { flex: 0 1 8.5em; width: auto; }
+      .shop-add .hub-add { align-self: center; }
+      .seg-row { display: flex; gap: 6px; align-items: center; margin: 10px 0 4px; flex-wrap: wrap; }
+      .seg-row .seg-label { font-size: 0.78rem; font-weight: 800; color: var(--ink-2); margin-right: 2px; }
+
+      /* アルバム */
+      .album-month-h { display: flex; align-items: baseline; gap: 8px; margin: 18px 0 8px; }
+      .album-month-h h3 { font-size: 1.02rem; font-weight: 900; margin: 0; }
+      .album-month-h span { font-size: 0.78rem; font-weight: 700; color: var(--ink-2); }
+      .album-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+      @media (min-width: 760px) { .album-grid { grid-template-columns: repeat(4, 1fr); } }
+      .album-cell { padding: 0; border-radius: 10px; overflow: hidden; min-height: 0 !important; aspect-ratio: 1; background: var(--surface-2); }
+      .album-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .photo-preview { width: 100%; border-radius: 12px; display: block; margin-top: 6px; }
+      .photo-file-btn {
+        display: inline-flex; align-items: center; gap: 8px;
+        background: var(--surface-2); border: 1.5px dashed var(--ink-3); color: var(--ink);
+        border-radius: 12px; padding: 14px 16px; font-weight: 800; width: 100%; justify-content: center;
+      }
+
+      /* まとめ・お知らせ */
+      .activity-list { display: flex; flex-direction: column; }
+      .activity-item {
+        display: flex; gap: 10px; padding: 10px 2px; border-bottom: 1px solid var(--line);
+        align-items: flex-start;
+      }
+      .activity-item:last-child { border-bottom: 0; }
+      .activity-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; margin-top: 5px; }
+      .activity-item .a-main { flex: 1; min-width: 0; }
+      .activity-item .a-text { font-size: 0.92rem; font-weight: 700; line-height: 1.5; overflow-wrap: anywhere; }
+      .activity-item .a-time { font-size: 0.74rem; font-weight: 700; color: var(--ink-3); white-space: nowrap; margin-top: 2px; }
+      .activity-item.unread .a-text { font-weight: 900; }
+      .activity-item.unread { background: var(--accent-soft); border-radius: 10px; padding-left: 8px; padding-right: 8px; }
+      .sum-nav { display: flex; align-items: center; gap: 4px; }
+      .sum-nav .sum-title { font-size: 1.05rem; font-weight: 900; min-width: 7.5em; text-align: center; }
+      .sum-card {
+        background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+        padding: 12px 14px; margin-bottom: 10px;
+      }
+      .sum-card h3 { font-size: 0.92rem; font-weight: 900; margin: 0 0 8px; }
+      .sum-line { font-size: 0.9rem; line-height: 1.65; color: var(--ink); }
+      .sum-line .muted { color: var(--ink-2); font-size: 0.83rem; }
+      .sum-member-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+      .sum-member {
+        display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 800;
+        background: var(--surface-2); border-radius: 999px; padding: 4px 11px 4px 8px;
+      }
+      .sum-member i { width: 10px; height: 10px; border-radius: 50%; }
+      .sum-thumbs { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-top: 8px; }
+      .sum-thumbs img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; display: block; }
+      @media (max-width: 560px) { .sum-thumbs { grid-template-columns: repeat(4, 1fr); } }
+
+      /* =====================================================
+         総点検修正 v20（過去の指摘チェックリストによる最終監査）
+         - ハブ画面はアプリバーが隠れるため、上部のセーフエリアを
+           ハブ側でも確保し、ノッチ端末で題字が潜らないようにする
+         - ToDo／買い物のチェック円は見た目28pxのまま、タップ
+           領域だけ44px相当に広げて押し間違いを防ぐ
+         - リアクションボタンの最小高さを他のボタンと揃える
+         ===================================================== */
+      .hub-view { padding-top: calc(12px + env(safe-area-inset-top)); }
+      .check-circle { position: relative; }
+      .check-circle::after { content: ""; position: absolute; inset: -8px; }
+      .rxn-btn { min-height: 2.25rem !important; }
     </style>
   </head>
   <body>
@@ -763,7 +978,7 @@
       <img class="auth-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAYAAAD0eNT6AAAVWUlEQVR4nO3dTY4cVRYG0ChUE9RswJZaDNkGA1bQa/AKWp5aCHlqsQKvgRUwYBsMUUv2BkBMLFUPrDRZVZkZf+/nvrjnTF2VeSsqiO9776XN3URIDw8PD71nACjh7u7urvcMPOeX0omAB/hMQejDRW9A2AOsoxTU5wJXIPABylIIynNBCxD4AG0pBPu5gBsJfYAYlIFtXLQVhD5AbMrAci7UDKEPMCZl4DYX5wrBD3AMisBlLsoZoQ9wbMrAP1yISfADZKMIJC8Agh8gt8xFIOUPLvgBOJexCKT6gQU/ALdkKgIpflDBD8AaGYrAV70HqE34A7BWhuw4bMPJ8MsDoL6j7gYc7ocS/ADUcLQicKgjAOEPQC1Hy5hDtJmj/VIAiO0IuwHD7wAIfwBaO0L2DF0AjvALAGBMo2fQkFsYo190AI5lxCOB4XYAhD8A0YyYTUMVgBEvMAA5jJZRQ2xZjHZRAchthCOB8DsAwh+A0YyQXaELwAgXEAAuiZ5hYQtA9AsHAHMiZ1nIAhD5ggHAGlEzLVwBiHqhAGCriNkWqgBEvEAAUEK0jAtTAKJdGAAoLVLWhSgAkS4IANQUJfO6F4AoFwIAWomQfV0LQIQLAAA99M7AbgWg9w8OAL31zMIuBUD4A8BnvTKxeQEQ/gDwWI9sbFoAhD8AXNY6I5sVAOEPALe1zMomBUD4A8AyrTKz+78DAAC0V70AWP0DwDotsrNqARD+ALBN7QytVgCEPwDsUzNLfQYAABKqUgCs/gGgjFqZWrwACH8AKKtGthYtAMIfAOoonbE+AwAACRUrAFb/AFBXyawtUgCEPwC0USpzHQEAQEK7C4DVPwC0VSJ77QAAQEK7CoDVPwD0sTeDNxcA4Q8Afe3JYkcAAJDQpgJg9Q8AMWzNZDsAAJDQ6gJg9Q8AsWzJZjsAAJDQqgJg9Q8AMa3NaDsAAJDQ4gJg9Q8Asa3J6vuag8Cc+/cfrv7Zp1cvG04CdbjHiepuyRdZ/VParYfiUx6SjMg9Tk93d3ez+a4A0NSah+JTHpKMwD1OBEsKgA8B0syeB2OJ74fa3OOMZLYAWP1TQqkHmwckUbnHiWRJdtsBoLrSDzQPSKJxjzOimwXA6h8AxjSX4XYAqKrWSsYKiSjc44xKAQCAhK4WANv/7FV7BWOFRG/ucaK7leV2AAAgIQUAABK6WABs/wPAMVzLdDsAAJCQAgAACT0rALb/AeBYLmW7HQAASEgBAICEFAAASOhRAXD+DwDH9DTj7QAAQEIKAAAkpAAAQEJfCoDzfwA4tvOstwMAAAkpAACQkAIAAAkpAACQ0FfT5AOAAJDFKfPtAABAQgoAACSkAABAQgoAACSkAABAQgoAACSkAABAQnf+DYAxfHzzuvcIq/372/9Wf4///fFz9feAa9zj1714+673CMy47z0Al40Y+AAnT59hCkE8CkAwgh84otOzTRGIQwEIQOgDWZw/75SBvnwIsDPhD2Tl+deXHYBO3PgAjgZ6sgPQgfAHeMxzsT0FoDE3OcBlno9tKQANubkBbvOcbEcBaMRNDbCM52UbCkADbmaAdTw361MAKnMTA2zj+VmXAlCRmxdgH8/RehSASty0AGV4ntahAABAQgpABdoqQFmeq+UpAIW5SQHq8HwtSwEAgIQUAABISAEoyPYUQF2es+UoAACQkAJQiFYK0IbnbRkKAAAkpAAAQEIKAAAkpAAU4DwKoC3P3f0UAABISAEAgIQUAKr53x8/D/36MMc9zsgUAABISAGgqlorGCsjonCPMyoFAAASUgCorvRKxsqIaNzjjEgBoIlSDzQPRqJyjzMaBYBm9j7YPBiJzj3OSO57D0Aupwfcv7/97+rvgRG4xxmFAkAXSx6SHoqMzD1OdAoAXXkAcnTucaLyGQAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASEgBAICEFAAASOi+9wBH9uLtu94jAAzv45vXvUc4JDsAAJCQAgAACSkAAJCQAgAACSkAAJCQAgAACSkAAJCQAgAACSkAAJCQAgAACSkAAJCQAgAACSkAAJCQAgAACSkAAJCQAgAA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" alt="ファミリーカレンダーのアイコン" />
       <h1 class="auth-title">ファミリーカレンダー</h1>
       <p class="auth-sub">
-        ファミリーカレンダーは、家族で予定を共有するためのカレンダーアプリです。Googleカレンダーと連携して、予定の確認・作成・編集ができます。<br />
+        ファミリーカレンダーは、家族で予定を共有するためのカレンダーアプリです。Googleカレンダーと連携して、予定の確認・作成・編集ができます。子どもの成長記録、ToDo、買い物リスト、アルバムも家族で共有できます。<br />
         サインインするとカレンダーが表示されます。
       </p>
 
@@ -802,7 +1017,11 @@
       <div id="previewBanner" class="preview-banner" hidden><span>サンプルデータを表示中です（表示確認用プレビュー）</span></div>
 
       <div class="strip-wrap">
-        <div class="density-row"><span>表示密度</span>
+        <div class="density-row">
+          <button id="calSwitchBtn" class="cal-switch-btn" type="button" title="カレンダーを切り替える">
+            <span id="calNameLabel">カレンダー</span><span aria-hidden="true">▾</span>
+          </button>
+          <span class="spacer"></span><span>表示密度</span>
           <button type="button" class="density-btn" data-density="standard" aria-pressed="true">標準</button>
           <button type="button" class="density-btn" data-density="compact" aria-pressed="false">コンパクト</button>
         </div>
@@ -823,10 +1042,84 @@
         <button id="dayAddBtn" class="day-add" type="button">＋ この日に予定を追加</button>
       </section>
 
-      <nav class="bottombar" aria-label="カレンダー操作">
-        <button id="todayBtn" class="bb-btn" type="button">今日</button>
-        <button id="calSwitchBtn" class="bb-btn bb-right" type="button" title="カレンダーを切り替える">
-          <span id="calNameLabel">カレンダー</span><span aria-hidden="true">▾</span>
+      <!-- ============ 成長記録 ============ -->
+      <section id="viewGrowth" class="hub-view" hidden aria-label="成長記録">
+        <div class="hub-head">
+          <h2 class="hub-title">成長記録</h2>
+          <button type="button" class="hub-refresh" data-refresh aria-label="最新の状態に更新" title="最新の状態に更新">↻</button>
+          <button type="button" class="hub-add" id="growthAddBtn">＋ 記録する</button>
+        </div>
+        <p class="hub-sync"><span class="sync-dot"></span><span data-sync-label>家族で共有中</span></p>
+        <div id="growthBody"></div>
+      </section>
+
+      <!-- ============ ToDo ============ -->
+      <section id="viewTodo" class="hub-view" hidden aria-label="ToDo">
+        <div class="hub-head">
+          <h2 class="hub-title">ToDo</h2>
+          <button type="button" class="hub-refresh" data-refresh aria-label="最新の状態に更新" title="最新の状態に更新">↻</button>
+          <button type="button" class="hub-add" id="todoAddBtn">＋ 追加</button>
+        </div>
+        <p class="hub-sync"><span class="sync-dot"></span><span data-sync-label>家族で共有中</span></p>
+        <div id="todoBody"></div>
+      </section>
+
+      <!-- ============ 買い物リスト ============ -->
+      <section id="viewShop" class="hub-view" hidden aria-label="買い物リスト">
+        <div class="hub-head">
+          <h2 class="hub-title">買い物リスト</h2>
+          <button type="button" class="hub-refresh" data-refresh aria-label="最新の状態に更新" title="最新の状態に更新">↻</button>
+        </div>
+        <p class="hub-sync"><span class="sync-dot"></span><span data-sync-label>家族で共有中</span></p>
+        <div id="shopBody"></div>
+      </section>
+
+      <!-- ============ アルバム ============ -->
+      <section id="viewAlbum" class="hub-view" hidden aria-label="アルバム">
+        <div class="hub-head">
+          <h2 class="hub-title">アルバム</h2>
+          <button type="button" class="hub-refresh" data-refresh aria-label="最新の状態に更新" title="最新の状態に更新">↻</button>
+          <button type="button" class="hub-add" id="albumAddBtn">＋ 写真を追加</button>
+        </div>
+        <p class="hub-sync"><span class="sync-dot"></span><span data-sync-label>家族で共有中</span></p>
+        <div id="albumBody"></div>
+      </section>
+
+      <!-- ============ まとめ（月次サマリー＋お知らせ） ============ -->
+      <section id="viewSummary" class="hub-view" hidden aria-label="今月のまとめ">
+        <div class="hub-head">
+          <h2 class="hub-title">まとめ</h2>
+          <button type="button" class="hub-refresh" data-refresh aria-label="最新の状態に更新" title="最新の状態に更新">↻</button>
+        </div>
+        <p class="hub-sync"><span class="sync-dot"></span><span data-sync-label>家族で共有中</span></p>
+        <div id="summaryBody"></div>
+      </section>
+
+      <nav class="tabbar" aria-label="画面切り替え" role="tablist">
+        <button type="button" class="tab-btn active" data-tab-btn="calendar" role="tab" aria-selected="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span>カレンダー</span>
+        </button>
+        <button type="button" class="tab-btn" data-tab-btn="growth" role="tab" aria-selected="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+          <span>成長記録</span>
+        </button>
+        <button type="button" class="tab-btn" data-tab-btn="todo" role="tab" aria-selected="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          <span>ToDo</span>
+        </button>
+        <button type="button" class="tab-btn" data-tab-btn="shop" role="tab" aria-selected="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+          <span>買い物</span>
+        </button>
+        <button type="button" class="tab-btn" data-tab-btn="album" role="tab" aria-selected="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <span>アルバム</span>
+        </button>
+        <button type="button" class="tab-btn" data-tab-btn="summary" role="tab" aria-selected="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+          <span>まとめ</span>
+          <span class="tab-badge" id="tabBadgeSummary" hidden></span>
         </button>
       </nav>
       <button id="fab" class="fab-center" type="button" aria-label="予定を追加">＋</button>
@@ -1201,6 +1494,8 @@
         state.accessToken = null; state.tokenExpiry = 0;
         clearStoredToken();
         state.calendarId = null; state.events = []; state.preview = false;
+        closeSheet();
+        resetHubState();
         MEMBER_ORDER.forEach(function (k) { MEMBERS[k].name = MEMBER_DEFAULT_LABELS[k]; });
         showAuth();
       }
@@ -1325,6 +1620,7 @@
         el("calNameLabel").textContent = (state.calendarName || "カレンダー") + "＋祝日";
         loadEvents();
         loadMemberLabels();
+        loadHubData();
       }
 
       /* Google のイベントJSON → 内部モデル */
@@ -1345,6 +1641,10 @@
           startDate: null, endDate: null,     // 表示上の開始日・終了日（両端含む）
           startDT: null, endDT: null
         };
+        /* 家族ハブ（成長記録・ToDo・買い物・アルバム）のデータ用イベント。
+           private拡張プロパティ fh=1 が目印。カレンダー表示からは除外する */
+        ev.hub = !!(item.extendedProperties && item.extendedProperties.private
+          && item.extendedProperties.private.fh === "1");
         if (item.start && item.start.date) {
           ev.allDay = true;
           ev.startDate = item.start.date;
@@ -1405,6 +1705,8 @@
             merged = merged.concat(synthesizedHolidayEvents(dateKey(gridStart), dateKey(gridEnd)));
           }
           state.events = merged;
+          /* 予定が変わったので、まとめ画面用の月別キャッシュは破棄する */
+          HUB.sumCache = {};
           renderCalendar();
         } catch (e) {
           console.error(e);
@@ -1616,9 +1918,10 @@
         return addDays(first, -first.getDay()); // 日曜始まり
       }
 
-      /* 担当での絞り込みはしない。全員の予定を常に表示する */
+      /* 担当での絞り込みはしない。全員の予定を常に表示する。
+         ただし家族ハブのデータ用イベントは予定ではないので除外する */
       function visibleEvents() {
-        return state.events.slice();
+        return state.events.filter(function (ev) { return !ev.hub; });
       }
 
       function eventsOn(key) {
@@ -1883,11 +2186,17 @@
       function openSheet(html) {
         el("sheetRoot").innerHTML = '<div class="overlay" id="sheetOverlay"><div class="sheet" role="dialog" aria-modal="true">'
           + '<div class="sheet-grip"></div>' + html + "</div></div>";
+        /* シート表示中は背景ページをスクロールさせない（iOSでシートの
+           スクロールが背面に伝わって位置がずれるのを防ぐ） */
+        document.body.style.overflow = "hidden";
         el("sheetOverlay").addEventListener("click", function (e) {
           if (e.target === e.currentTarget) closeSheet();
         });
       }
-      function closeSheet() { el("sheetRoot").innerHTML = ""; }
+      function closeSheet() {
+        el("sheetRoot").innerHTML = "";
+        document.body.style.overflow = "";
+      }
 
       function findEvent(id) { return state.events.find(function (e) { return e.id === id; }); }
 
@@ -1981,8 +2290,8 @@
           + '<input class="dt-input" id="fEndDate" type="date" value="' + esc(endDate) + '" aria-label="終了日" />'
           + '<span class="f-time-wrap"><input class="dt-input" id="fEndTime" type="time" value="' + endTime + '" aria-label="終了時刻" title="ダブルタップで数字を直接入力できます" /></span>'
           + "</div></div>"
-          + '<button type="button" class="details-toggle" id="fDetailsToggle" aria-expanded="' + (isEdit && base.memo ? "true" : "false") + '"><span>詳細（場所・メモ）</span><span aria-hidden="true" id="fDetailsChevron">' + (isEdit && base.memo ? "▴" : "▾") + "</span></button>"
-          + '<div class="memo-area" id="fMemoWrap"' + (isEdit && base.memo ? "" : " hidden") + '><textarea class="form-textarea" id="fMemo" placeholder="場所や持ち物など">' + esc(isEdit ? base.memo : "") + "</textarea></div>"
+          + '<div class="memo-area"><label class="f-label" for="fMemo">メモ（場所・持ち物など）</label>'
+          + '<textarea class="form-textarea" id="fMemo" placeholder="場所や持ち物など">' + esc(isEdit ? base.memo : "") + "</textarea></div>"
           + '<p class="form-error" id="formError" hidden></p>'
           + "</form>"
         );
@@ -2048,14 +2357,6 @@
             try { inp.select(); } catch (e) {}
             if (typeof inp.showPicker === "function") { try { inp.showPicker(); } catch (e) {} }
           });
-        });
-        el("fDetailsToggle").addEventListener("click", function () {
-          const wrap = el("fMemoWrap");
-          const open = wrap.hidden;
-          wrap.hidden = !open;
-          el("fDetailsToggle").setAttribute("aria-expanded", String(open));
-          el("fDetailsChevron").textContent = open ? "▴" : "▾";
-          if (open) el("fMemo").focus();
         });
         el("memberPicker").addEventListener("click", function (e) {
           const btn = e.target.closest("[data-pick]");
@@ -2236,6 +2537,7 @@
         el("previewBanner").hidden = false;
         seedPreviewEvents();
         showApp();
+        loadHubData();
       }
       function seedPreviewEvents() {
         const now = new Date();
@@ -2293,6 +2595,1233 @@
       }
 
       /* =====================================================
+         家族ハブ（成長記録 / ToDo / 買い物 / アルバム / まとめ）
+         -----------------------------------------------------
+         データはファミリーカレンダー内の専用イベントとして保存する。
+         private拡張プロパティ fh=1 / ft=<種類> が目印で、カレンダー
+         表示からは visibleEvents() で除外している。共有カレンダーに
+         置くため、夫婦どちらの端末から開いても同じ記録が見える
+         （＝リアルタイム共有の土台）。変更の通知は「まとめ」画面の
+         お知らせ（未読バッジ付き）で代替し、90秒ごとの自動更新で
+         相手の変更を取り込む。
+         ・growth: 1件=1イベント。props: child/h/w、メモは本文
+         ・todo:   1件=1イベント（期日＝開始日）。props: asg/done/rep
+         ・photo:  1枚=1イベント。本文に縮小した写真データ、props.pmemo
+         ・shop:   リスト全体を1イベントの本文JSONに保存
+         ・config: 設定（誕生日）を1イベントの本文JSONに保存
+         リアクションは各イベントの props.rxn（JSON）に件数を保存する
+         ===================================================== */
+      const HUB = {
+        loaded: false, loading: false, lastLoadedAt: null,
+        growth: [], todos: [], photos: [],
+        shopEventId: null, shopItems: [], shopUpdated: "",
+        configEventId: null, birthdays: {},
+        tab: "calendar", growthChild: "d", shopSort: "aisle",
+        summaryYM: null, sumCache: {}, sumLoading: null
+      };
+      const RXN_KINDS = [
+        { key: "heart", label: "❤️" },
+        { key: "good", label: "👍" },
+        { key: "thanks", label: "🙏" }
+      ];
+      const AISLES = ["青果", "精肉", "鮮魚", "乳製品・卵", "パン", "冷凍食品", "調味料", "飲料", "お菓子", "日用品", "その他"];
+      const REPEAT_LABELS = { none: "", daily: "毎日", weekly: "毎週", monthly: "毎月" };
+      const REACTED_KEY = "fc.hub.reacted";
+      const SEEN_KEY = "fc.hub.seenAt";
+
+      function reactedSet() {
+        try { return new Set(JSON.parse(localStorage.getItem(REACTED_KEY) || "[]")); } catch (e) { return new Set(); }
+      }
+      function saveReactedSet(s) {
+        try { localStorage.setItem(REACTED_KEY, JSON.stringify(Array.from(s))); } catch (e) {}
+      }
+      function hubSeenAt() {
+        try { return localStorage.getItem(SEEN_KEY) || ""; } catch (e) { return ""; }
+      }
+      function hubMarkSeen() {
+        try { localStorage.setItem(SEEN_KEY, new Date().toISOString()); } catch (e) {}
+        updateTabBadge();
+      }
+      function resetHubState() {
+        HUB.loaded = false; HUB.loading = false; HUB.lastLoadedAt = null;
+        HUB.growth = []; HUB.todos = []; HUB.photos = [];
+        HUB.shopEventId = null; HUB.shopItems = []; HUB.shopUpdated = "";
+        HUB.configEventId = null; HUB.birthdays = {}; HUB.summaryYM = null;
+        HUB.sumCache = {}; HUB.sumLoading = null;
+        try { switchTab("calendar"); } catch (e) {}
+      }
+
+      /* ---------- データ層 ---------- */
+      function hubRecordOf(item) {
+        const priv = (item.extendedProperties && item.extendedProperties.private) || {};
+        if (priv.fh !== "1") return null;
+        const base = normalizeEvent(item, state.calendarId, false);
+        return {
+          id: item.id, type: priv.ft || "", date: base.startDate || todayKey(),
+          title: item.summary || "", memo: item.description || "",
+          props: Object.assign({}, priv),
+          created: item.created || "", updated: item.updated || ""
+        };
+      }
+      function ingestHubItems(items) {
+        HUB.growth = []; HUB.todos = []; HUB.photos = [];
+        HUB.shopEventId = null; HUB.shopItems = []; HUB.shopUpdated = "";
+        HUB.configEventId = null; HUB.birthdays = {};
+        (items || []).forEach(function (item) {
+          const rec = hubRecordOf(item);
+          if (!rec) return;
+          if (rec.type === "growth") HUB.growth.push(rec);
+          else if (rec.type === "todo") HUB.todos.push(rec);
+          else if (rec.type === "photo") HUB.photos.push(rec);
+          else if (rec.type === "shop") {
+            HUB.shopEventId = rec.id; HUB.shopUpdated = rec.updated;
+            try { const arr = JSON.parse(rec.memo || "[]"); if (Array.isArray(arr)) HUB.shopItems = arr; } catch (e) {}
+          } else if (rec.type === "config") {
+            HUB.configEventId = rec.id;
+            try { const c = JSON.parse(rec.memo || "{}"); if (c && c.birthdays) HUB.birthdays = c.birthdays; } catch (e) {}
+          }
+        });
+        HUB.growth.sort(function (a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+        HUB.photos.sort(function (a, b) { return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); });
+      }
+      async function loadHubData(manual) {
+        if (state.preview) {
+          if (!HUB.loaded) { seedHubPreview(); HUB.loaded = true; HUB.lastLoadedAt = new Date(); }
+          renderHub();
+          if (manual) toast("最新の状態に更新しました");
+          return;
+        }
+        if (!state.calendarId || HUB.loading) return;
+        HUB.loading = true;
+        try {
+          const qs = new URLSearchParams({
+            singleEvents: "true", orderBy: "startTime", maxResults: "2500",
+            timeMin: new Date(2015, 0, 1).toISOString(),
+            timeMax: new Date(new Date().getFullYear() + 3, 0, 1).toISOString(),
+            privateExtendedProperty: "fh=1"
+          });
+          const data = await api("/calendars/" + encodeURIComponent(state.calendarId) + "/events?" + qs.toString());
+          ingestHubItems(data.items || []);
+          HUB.loaded = true;
+          HUB.lastLoadedAt = new Date();
+          renderHub();
+          if (manual) toast("最新の状態に更新しました");
+        } catch (e) {
+          console.warn("hub load failed", e);
+          if (manual) toast("更新に失敗しました：" + friendlyErrorMessage(e));
+        } finally { HUB.loading = false; }
+      }
+      function hubEventResource(rec) {
+        const priv = Object.assign({ fh: "1", ft: rec.type }, rec.props);
+        priv.fh = "1"; priv.ft = rec.type;
+        return {
+          summary: rec.title, description: rec.memo || "",
+          start: { date: rec.date },
+          end: { date: dateKey(addDays(parseKey(rec.date), 1)) },
+          extendedProperties: { private: priv }
+        };
+      }
+      function hubLocalInsert(rec) {
+        if (rec.type === "growth") { HUB.growth.push(rec); HUB.growth.sort(function (a, b) { return a.date < b.date ? -1 : 1; }); }
+        else if (rec.type === "todo") HUB.todos.push(rec);
+        else if (rec.type === "photo") { HUB.photos.push(rec); HUB.photos.sort(function (a, b) { return a.date < b.date ? 1 : -1; }); }
+      }
+      async function hubCreate(rec) {
+        rec.created = rec.updated = new Date().toISOString();
+        if (state.preview) {
+          rec.id = "hub-" + (++state.previewSeq);
+          hubLocalInsert(rec);
+          HUB.lastLoadedAt = new Date();
+          renderHub();
+          return rec;
+        }
+        await api("/calendars/" + encodeURIComponent(state.calendarId) + "/events",
+          { method: "POST", body: JSON.stringify(hubEventResource(rec)) });
+        await loadHubData();
+        return rec;
+      }
+      async function hubUpdate(rec) {
+        rec.updated = new Date().toISOString();
+        if (state.preview) { HUB.lastLoadedAt = new Date(); renderHub(); return; }
+        await api("/calendars/" + encodeURIComponent(state.calendarId) + "/events/" + encodeURIComponent(rec.id),
+          { method: "PATCH", body: JSON.stringify(hubEventResource(rec)) });
+        await loadHubData();
+      }
+      async function hubDelete(rec) {
+        if (state.preview) {
+          HUB.growth = HUB.growth.filter(function (r) { return r.id !== rec.id; });
+          HUB.todos = HUB.todos.filter(function (r) { return r.id !== rec.id; });
+          HUB.photos = HUB.photos.filter(function (r) { return r.id !== rec.id; });
+          renderHub();
+          return;
+        }
+        await api("/calendars/" + encodeURIComponent(state.calendarId) + "/events/" + encodeURIComponent(rec.id),
+          { method: "DELETE" });
+        await loadHubData();
+      }
+      /* 買い物リスト（コンテナイベント）の保存 */
+      async function hubSaveShop() {
+        HUB.shopUpdated = new Date().toISOString();
+        if (state.preview) { HUB.lastLoadedAt = new Date(); renderHub(); return; }
+        const memo = JSON.stringify(HUB.shopItems);
+        try {
+          if (HUB.shopEventId) {
+            await api("/calendars/" + encodeURIComponent(state.calendarId) + "/events/" + encodeURIComponent(HUB.shopEventId),
+              { method: "PATCH", body: JSON.stringify({ description: memo, extendedProperties: { private: { fh: "1", ft: "shop" } } }) });
+          } else {
+            const t = todayKey();
+            const data = await api("/calendars/" + encodeURIComponent(state.calendarId) + "/events",
+              { method: "POST", body: JSON.stringify({
+                  summary: "買い物リスト", description: memo,
+                  start: { date: t }, end: { date: dateKey(addDays(parseKey(t), 1)) },
+                  extendedProperties: { private: { fh: "1", ft: "shop" } } }) });
+            if (data && data.id) HUB.shopEventId = data.id;
+          }
+          HUB.lastLoadedAt = new Date();
+          renderHub();
+        } catch (e) { toast("買い物リストの保存に失敗しました：" + friendlyErrorMessage(e)); }
+      }
+      /* 設定（誕生日）の保存 */
+      async function hubSaveConfig() {
+        if (state.preview) { renderHub(); return; }
+        const memo = JSON.stringify({ birthdays: HUB.birthdays });
+        try {
+          if (HUB.configEventId) {
+            await api("/calendars/" + encodeURIComponent(state.calendarId) + "/events/" + encodeURIComponent(HUB.configEventId),
+              { method: "PATCH", body: JSON.stringify({ description: memo, extendedProperties: { private: { fh: "1", ft: "config" } } }) });
+          } else {
+            const t = todayKey();
+            const data = await api("/calendars/" + encodeURIComponent(state.calendarId) + "/events",
+              { method: "POST", body: JSON.stringify({
+                  summary: "家族アプリ設定", description: memo,
+                  start: { date: t }, end: { date: dateKey(addDays(parseKey(t), 1)) },
+                  extendedProperties: { private: { fh: "1", ft: "config" } } }) });
+            if (data && data.id) HUB.configEventId = data.id;
+          }
+          renderHub();
+        } catch (e) { toast("設定の保存に失敗しました：" + friendlyErrorMessage(e)); }
+      }
+      function findHubRecord(type, id) {
+        const arr = type === "growth" ? HUB.growth : (type === "todo" ? HUB.todos : (type === "photo" ? HUB.photos : []));
+        return arr.find(function (r) { return r.id === id; }) || null;
+      }
+
+      /* ---------- リアクション ---------- */
+      function rxnOf(rec) {
+        try { const o = JSON.parse(rec.props.rxn || "{}"); return o && typeof o === "object" ? o : {}; } catch (e) { return {}; }
+      }
+      function rxnButtonsHtml(rec) {
+        const counts = rxnOf(rec);
+        const set = reactedSet();
+        return RXN_KINDS.map(function (k) {
+          const n = counts[k.key] || 0;
+          const on = set.has(rec.id + ":" + k.key);
+          return '<button type="button" class="rxn-btn' + (on ? " on" : "") + '" data-rxn="' + k.key
+            + '" data-rxn-type="' + rec.type + '" data-rxn-id="' + esc(rec.id) + '" aria-pressed="' + on + '">'
+            + k.label + (n > 0 ? '<span class="rxn-count">' + n + "</span>" : "") + "</button>";
+        }).join("");
+      }
+      function rxnRowHtml(rec) {
+        return '<div class="rxn-row" data-rxn-for="' + rec.type + ":" + esc(rec.id) + '">' + rxnButtonsHtml(rec) + "</div>";
+      }
+      function refreshRxnContainers(rec) {
+        document.querySelectorAll('[data-rxn-for="' + rec.type + ":" + rec.id + '"]').forEach(function (n) {
+          n.innerHTML = rxnButtonsHtml(rec);
+        });
+      }
+      async function toggleReaction(rec, kind) {
+        const set = reactedSet();
+        const key = rec.id + ":" + kind;
+        const counts = rxnOf(rec);
+        if (set.has(key)) { set.delete(key); counts[kind] = Math.max(0, (counts[kind] || 0) - 1); }
+        else { set.add(key); counts[kind] = (counts[kind] || 0) + 1; }
+        saveReactedSet(set);
+        rec.props.rxn = JSON.stringify(counts);
+        refreshRxnContainers(rec);
+        try { await hubUpdate(rec); }
+        catch (e) { toast("リアクションに失敗しました：" + friendlyErrorMessage(e)); }
+      }
+
+      /* ---------- 画面切り替え ---------- */
+      function switchTab(tab) {
+        HUB.tab = tab;
+        document.querySelectorAll("[data-tab-btn]").forEach(function (b) {
+          const on = b.getAttribute("data-tab-btn") === tab;
+          b.classList.toggle("active", on);
+          b.setAttribute("aria-selected", String(on));
+        });
+        const cal = tab === "calendar";
+        [".appbar", ".strip-wrap", ".cal-shell", ".day-panel"].forEach(function (sel) {
+          const n = document.querySelector(sel);
+          if (n) n.style.display = cal ? "" : "none";
+        });
+        const fab = el("fab");
+        if (fab) fab.style.display = cal ? "" : "none";
+        /* カレンダーに戻ったときは高さを含めて再描画する（他タブ表示中に
+           フォント読み込みや向き変更で高さがずれていても直る） */
+        if (cal) { try { renderCalendar(); } catch (e) {} }
+        el("viewGrowth").hidden = tab !== "growth";
+        el("viewTodo").hidden = tab !== "todo";
+        el("viewShop").hidden = tab !== "shop";
+        el("viewAlbum").hidden = tab !== "album";
+        el("viewSummary").hidden = tab !== "summary";
+        if (!cal && !HUB.loaded) loadHubData();
+        renderHub();
+        window.scrollTo(0, 0);
+      }
+      function renderHub() {
+        updateSyncLabels();
+        updateTabBadge();
+        if (HUB.tab === "growth") renderGrowth();
+        else if (HUB.tab === "todo") renderTodo();
+        else if (HUB.tab === "shop") renderShop();
+        else if (HUB.tab === "album") renderAlbum();
+        else if (HUB.tab === "summary") renderSummary();
+      }
+      function updateSyncLabels() {
+        const txt = HUB.lastLoadedAt
+          ? "家族で共有中 ・ 最終更新 " + fmtTime(HUB.lastLoadedAt)
+          : "家族で共有中";
+        document.querySelectorAll("[data-sync-label]").forEach(function (n) { n.textContent = txt; });
+      }
+      function updateTabBadge() {
+        const badge = el("tabBadgeSummary");
+        if (!badge) return;
+        const seen = hubSeenAt();
+        const n = activityItems().filter(function (a) { return a.t && a.t > seen; }).length;
+        badge.hidden = n === 0 || HUB.tab === "summary";
+        badge.textContent = n > 9 ? "9+" : String(n);
+      }
+      function relTime(iso) {
+        if (!iso) return "";
+        const t = new Date(iso).getTime();
+        if (isNaN(t)) return "";
+        const diff = Date.now() - t;
+        if (diff < 60 * 1000) return "たった今";
+        if (diff < 60 * 60 * 1000) return Math.floor(diff / 60000) + "分前";
+        if (diff < 24 * 60 * 60 * 1000) return Math.floor(diff / 3600000) + "時間前";
+        const d = new Date(iso);
+        return (d.getMonth() + 1) + "/" + d.getDate();
+      }
+
+      /* =====================================================
+         成長記録
+         ===================================================== */
+      function hubChildKeys() {
+        const keys = ["d", "e"];
+        HUB.growth.forEach(function (r) {
+          const c = r.props.child || "d";
+          if (keys.indexOf(c) < 0) keys.push(c);
+        });
+        return keys;
+      }
+      function ageText(birthKey, atKey) {
+        if (!birthKey || !atKey) return "";
+        const b = parseKey(birthKey), a = parseKey(atKey);
+        let months = (a.getFullYear() - b.getFullYear()) * 12 + (a.getMonth() - b.getMonth());
+        if (a.getDate() < b.getDate()) months--;
+        if (months < 0) return "";
+        const y = Math.floor(months / 12), m = months % 12;
+        if (y > 0) return y + "歳" + (m > 0 ? m + "か月" : "");
+        return m + "か月";
+      }
+      function fmtDelta(v, unit) {
+        if (v === null || v === undefined || isNaN(v)) return "";
+        const s = v > 0 ? "+" : "";
+        return "前回 " + s + v.toFixed(1) + unit;
+      }
+      /* 成長曲線（手書きSVG）。横軸は実日付スケール、縦軸はデータ範囲から決める */
+      function growthChartSvg(recs, field, unit, color) {
+        const pts = [];
+        recs.forEach(function (r) {
+          const v = parseFloat(r.props[field]);
+          if (isFinite(v) && v > 0) pts.push({ key: r.date, t: parseKey(r.date).getTime(), v: v });
+        });
+        if (!pts.length) return '<p class="hub-empty">まだデータがありません</p>';
+        const W = 340, H = 168, PL = 42, PR = 14, PT = 18, PB = 22;
+        const iw = W - PL - PR, ih = H - PT - PB;
+        let t0 = Math.min.apply(null, pts.map(function (p) { return p.t; }));
+        let t1 = Math.max.apply(null, pts.map(function (p) { return p.t; }));
+        if (t0 === t1) { t0 -= 15 * 86400000; t1 += 15 * 86400000; }
+        let vmin = Math.min.apply(null, pts.map(function (p) { return p.v; }));
+        let vmax = Math.max.apply(null, pts.map(function (p) { return p.v; }));
+        const padV = Math.max((vmax - vmin) * 0.3, field === "h" ? 1.5 : 0.4);
+        vmin -= padV; vmax += padV;
+        function X(t) { return PL + (t - t0) / (t1 - t0) * iw; }
+        function Y(v) { return PT + (vmax - v) / (vmax - vmin) * ih; }
+        let s = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="成長曲線（' + unit + '）">';
+        for (let i = 0; i <= 3; i++) {
+          const v = vmin + (vmax - vmin) * i / 3;
+          const yy = Y(v);
+          s += '<line x1="' + PL + '" y1="' + yy.toFixed(1) + '" x2="' + (W - PR) + '" y2="' + yy.toFixed(1) + '" style="stroke:var(--line)" stroke-width="1"/>';
+          s += '<text x="' + (PL - 5) + '" y="' + (yy + 3).toFixed(1) + '" text-anchor="end" font-size="9" style="fill:var(--ink-2)">' + v.toFixed(1) + "</text>";
+        }
+        const fd = parseKey(pts[0].key), ld = parseKey(pts[pts.length - 1].key);
+        s += '<text x="' + PL + '" y="' + (H - 6) + '" font-size="9" style="fill:var(--ink-2)">' + (fd.getMonth() + 1) + "/" + fd.getDate() + "</text>";
+        s += '<text x="' + (W - PR) + '" y="' + (H - 6) + '" text-anchor="end" font-size="9" style="fill:var(--ink-2)">' + (ld.getMonth() + 1) + "/" + ld.getDate() + "</text>";
+        if (pts.length > 1) {
+          s += '<polyline fill="none" stroke="' + color + '" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" points="'
+            + pts.map(function (p) { return X(p.t).toFixed(1) + "," + Y(p.v).toFixed(1); }).join(" ") + '"/>';
+        }
+        pts.forEach(function (p, i) {
+          s += '<circle cx="' + X(p.t).toFixed(1) + '" cy="' + Y(p.v).toFixed(1) + '" r="3.5" fill="' + color + '" style="stroke:var(--surface)" stroke-width="1.5"/>';
+          if (i === pts.length - 1) {
+            const lx = Math.max(PL + 20, Math.min(X(p.t), W - PR - 20));
+            s += '<text x="' + lx.toFixed(1) + '" y="' + (Y(p.v) - 9).toFixed(1) + '" text-anchor="middle" font-size="11" font-weight="900" style="fill:var(--ink)">' + p.v.toFixed(1) + unit + "</text>";
+          }
+        });
+        return s + "</svg>";
+      }
+      function renderGrowth() {
+        const body = el("growthBody");
+        if (!body) return;
+        const kids = hubChildKeys();
+        if (kids.indexOf(HUB.growthChild) < 0) HUB.growthChild = kids[0];
+        const child = HUB.growthChild;
+        const mb = MEMBERS[child] || MEMBERS.d;
+        const recs = HUB.growth.filter(function (r) { return (r.props.child || "d") === child; });
+        const latest = recs[recs.length - 1];
+        const prev = recs[recs.length - 2];
+        let html = '<div class="child-chips">' + kids.map(function (k) {
+          const m = MEMBERS[k];
+          const on = k === child;
+          return '<button type="button" class="child-chip" data-child="' + k + '" aria-pressed="' + on + '"'
+            + (on ? ' style="background:' + m.chipBg + ";color:" + m.onChip + ";border-color:" + m.chipBg + '"' : "")
+            + '><i style="background:' + m.color + '"></i>' + esc(m.name) + "</button>";
+        }).join("") + "</div>";
+        if (latest) {
+          const dh = (latest.props.h && prev && prev.props.h) ? parseFloat(latest.props.h) - parseFloat(prev.props.h) : null;
+          const dw = (latest.props.w && prev && prev.props.w) ? parseFloat(latest.props.w) - parseFloat(prev.props.w) : null;
+          const age = ageText(HUB.birthdays[child], latest.date);
+          html += '<div class="stat-grid">'
+            + '<div class="stat-card"><div class="s-label">身長</div><div class="s-value">'
+            + (latest.props.h ? parseFloat(latest.props.h).toFixed(1) + " <small>cm</small>" : "―")
+            + '</div><div class="s-sub">' + (dh !== null ? '<span class="up">' + esc(fmtDelta(dh, "cm")) + "</span>" : "　") + "</div></div>"
+            + '<div class="stat-card"><div class="s-label">体重</div><div class="s-value">'
+            + (latest.props.w ? parseFloat(latest.props.w).toFixed(1) + " <small>kg</small>" : "―")
+            + '</div><div class="s-sub">' + (dw !== null ? '<span class="up">' + esc(fmtDelta(dw, "kg")) + "</span>" : "　") + "</div></div>"
+            + '<div class="stat-card"><div class="s-label">記録日</div><div class="s-value" style="font-size:1.02rem">'
+            + (parseKey(latest.date).getMonth() + 1) + "月" + parseKey(latest.date).getDate() + "日"
+            + '</div><div class="s-sub">' + (age ? esc(age) : "　") + "</div></div>"
+            + "</div>";
+          html += '<div class="chart-card"><h3>身長の成長曲線</h3>' + growthChartSvg(recs, "h", "cm", mb.color) + "</div>";
+          html += '<div class="chart-card"><h3>体重の成長曲線</h3>' + growthChartSvg(recs, "w", "kg", "#2b6cb0") + "</div>";
+        } else {
+          html += '<p class="hub-empty">まだ記録がありません。「＋ 記録する」から最初の記録を追加しましょう。</p>';
+        }
+        html += '<div class="birth-row"><label>誕生日（月齢の表示に使います）'
+          + '<input type="date" class="dt-input" id="birthInput" value="' + esc(HUB.birthdays[child] || "") + '"></label>'
+          + '<button type="button" class="btn-mini" id="birthSaveBtn">保存</button></div>';
+        if (recs.length) {
+          html += '<h3 class="hub-h3">記録一覧</h3><div class="record-list">';
+          recs.slice().reverse().forEach(function (r) {
+            const vals = [];
+            if (r.props.h) vals.push("身長 " + parseFloat(r.props.h).toFixed(1) + "cm");
+            if (r.props.w) vals.push("体重 " + parseFloat(r.props.w).toFixed(1) + "kg");
+            const age = ageText(HUB.birthdays[child], r.date);
+            html += '<div class="record-row"><button type="button" class="record-main" data-growth-open="' + esc(r.id) + '">'
+              + '<span class="record-date">' + esc(fmtDayLabel(r.date)) + (age ? " ・ " + esc(age) : "") + "</span>"
+              + '<span class="record-vals">' + esc(vals.join(" ・ ") || "メモのみ") + "</span>"
+              + (r.memo ? '<span class="record-memo">' + esc(r.memo) + "</span>" : "")
+              + "</button>" + rxnRowHtml(r) + "</div>";
+          });
+          html += "</div>";
+        }
+        body.innerHTML = html;
+        body.querySelectorAll("[data-child]").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            HUB.growthChild = btn.getAttribute("data-child");
+            renderGrowth();
+          });
+        });
+        const birthSave = el("birthSaveBtn");
+        if (birthSave) birthSave.addEventListener("click", async function () {
+          HUB.birthdays[child] = el("birthInput").value || "";
+          await hubSaveConfig();
+          toast("誕生日を保存しました");
+          renderGrowth();
+        });
+        body.querySelectorAll("[data-growth-open]").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            const rec = findHubRecord("growth", btn.getAttribute("data-growth-open"));
+            if (rec) openGrowthForm(rec);
+          });
+        });
+      }
+      function openGrowthForm(rec) {
+        const isEdit = !!rec;
+        let pickedChild = isEdit ? (rec.props.child || "d") : HUB.growthChild;
+        /* 成長記録の対象は子どものスロットだけ（大人の担当は出さない） */
+        const chips = hubChildKeys().map(function (k) {
+          const m = MEMBERS[k];
+          const sel = k === pickedChild;
+          return '<button type="button" class="member-pick" data-gpick="' + k + '" aria-pressed="' + sel + '">'
+            + '<i style="background:' + m.color + '"></i>' + esc(m.name) + "</button>";
+        }).join("");
+        openSheet(
+          '<form id="growthForm" novalidate>'
+          + '<div class="sheet-head"><button type="button" class="sh-cancel" id="gCancelBtn">キャンセル</button>'
+          + '<span class="sh-title">' + (isEdit ? "記録を編集" : "成長記録") + '</span>'
+          + '<button type="submit" class="sh-save" id="gSaveBtn">' + (isEdit ? "保存" : "追加") + "</button></div>"
+          + '<div class="f-row"><span class="f-name">子ども</span><div class="f-body start"><div class="member-picker" id="gChildPicker">' + chips + "</div></div></div>"
+          + '<div class="f-row"><span class="f-name">日付</span><div class="f-body">'
+          + '<input class="dt-input" id="gDate" type="date" value="' + esc(isEdit ? rec.date : todayKey()) + '" aria-label="記録日" /></div></div>'
+          + '<div class="f-row"><span class="f-name">身長</span><div class="f-body">'
+          + '<input class="form-input" id="gHeight" type="number" inputmode="decimal" step="0.1" min="0" placeholder="例：99.4" style="max-width:9em" value="' + esc(isEdit ? (rec.props.h || "") : "") + '" aria-label="身長（cm）" /><span style="font-weight:700;color:var(--ink-2)">cm</span></div></div>'
+          + '<div class="f-row"><span class="f-name">体重</span><div class="f-body">'
+          + '<input class="form-input" id="gWeight" type="number" inputmode="decimal" step="0.1" min="0" placeholder="例：15.3" style="max-width:9em" value="' + esc(isEdit ? (rec.props.w || "") : "") + '" aria-label="体重（kg）" /><span style="font-weight:700;color:var(--ink-2)">kg</span></div></div>'
+          + '<div class="memo-area"><label class="f-label" for="gMemo">できたこと・メモ</label>'
+          + '<textarea class="form-textarea" id="gMemo" placeholder="例：寝返りした、つかまり立ちした">' + esc(isEdit ? rec.memo : "") + "</textarea></div>"
+          + '<p class="form-error" id="gError" hidden></p>'
+          + (isEdit ? '<div class="sheet-actions"><button type="button" class="btn btn-danger" id="gDeleteBtn">この記録を削除</button></div>' : "")
+          + "</form>"
+        );
+        el("gChildPicker").addEventListener("click", function (e) {
+          const btn = e.target.closest("[data-gpick]");
+          if (!btn) return;
+          pickedChild = btn.getAttribute("data-gpick");
+          document.querySelectorAll("#gChildPicker .member-pick").forEach(function (n) {
+            n.setAttribute("aria-pressed", String(n.getAttribute("data-gpick") === pickedChild));
+          });
+        });
+        el("gCancelBtn").addEventListener("click", closeSheet);
+        if (isEdit) {
+          const delBtn = el("gDeleteBtn");
+          delBtn.addEventListener("click", async function () {
+            if (!delBtn.classList.contains("armed")) {
+              delBtn.classList.add("armed"); delBtn.textContent = "本当に削除する"; return;
+            }
+            delBtn.disabled = true;
+            try { await hubDelete(rec); closeSheet(); toast("記録を削除しました"); }
+            catch (e) { toast("削除に失敗しました：" + friendlyErrorMessage(e)); delBtn.disabled = false; }
+          });
+        }
+        el("growthForm").addEventListener("submit", async function (e) {
+          e.preventDefault();
+          const date = el("gDate").value;
+          const h = el("gHeight").value.trim();
+          const w = el("gWeight").value.trim();
+          const memo = el("gMemo").value.trim();
+          const errEl = el("gError");
+          function fail(msg) { errEl.textContent = msg; errEl.hidden = false; }
+          if (!date) return fail("日付を選んでください");
+          if (!h && !w && !memo) return fail("身長・体重・メモのいずれかを入力してください");
+          if (h && !(parseFloat(h) > 0)) return fail("身長の値を確認してください");
+          if (w && !(parseFloat(w) > 0)) return fail("体重の値を確認してください");
+          const saveBtn = el("gSaveBtn");
+          saveBtn.disabled = true; saveBtn.textContent = "保存中…";
+          try {
+            if (isEdit) {
+              rec.date = date; rec.memo = memo;
+              rec.props.child = pickedChild; rec.props.h = h; rec.props.w = w;
+              rec.title = (MEMBERS[pickedChild] || MEMBERS.c).name + "の成長記録";
+              await hubUpdate(rec);
+              toast("記録を更新しました");
+            } else {
+              await hubCreate({
+                type: "growth", date: date, memo: memo,
+                title: (MEMBERS[pickedChild] || MEMBERS.c).name + "の成長記録",
+                props: { child: pickedChild, h: h, w: w }
+              });
+              HUB.growthChild = pickedChild;
+              toast("記録を追加しました");
+            }
+            closeSheet();
+            renderHub();
+          } catch (err) {
+            fail("保存に失敗しました：" + friendlyErrorMessage(err));
+            saveBtn.disabled = false; saveBtn.textContent = isEdit ? "保存" : "追加";
+          }
+        });
+      }
+
+      /* =====================================================
+         ToDo
+         ===================================================== */
+      function nextDueKey(key, rep) {
+        const d = parseKey(key);
+        if (rep === "daily") return dateKey(addDays(d, 1));
+        if (rep === "weekly") return dateKey(addDays(d, 7));
+        if (rep === "monthly") {
+          let nd = new Date(d.getFullYear(), d.getMonth() + 1, d.getDate());
+          if (nd.getDate() !== d.getDate()) nd = new Date(d.getFullYear(), d.getMonth() + 2, 0);
+          return dateKey(nd);
+        }
+        return key;
+      }
+      async function toggleTodoDone(rec) {
+        if (rec.props.done === "1") {
+          rec.props.done = "0";
+          try { await hubUpdate(rec); toast("未完了に戻しました"); }
+          catch (e) { toast("更新に失敗しました：" + friendlyErrorMessage(e)); }
+          return;
+        }
+        rec.props.done = "1";
+        try {
+          await hubUpdate(rec);
+          if (rec.props.rep && rec.props.rep !== "none") {
+            await hubCreate({
+              type: "todo", title: rec.title, date: nextDueKey(rec.date, rec.props.rep), memo: "",
+              props: { asg: rec.props.asg || "c", done: "0", rep: rec.props.rep }
+            });
+          }
+          toast("完了しました");
+        } catch (e) { toast("更新に失敗しました：" + friendlyErrorMessage(e)); }
+      }
+      function todoCardHtml(r) {
+        const done = r.props.done === "1";
+        const asg = MEMBERS[r.props.asg] || MEMBERS.c;
+        const overdue = !done && r.date < todayKey();
+        const rep = REPEAT_LABELS[r.props.rep] || "";
+        return '<div class="record-row"><div class="todo-line">'
+          + '<button type="button" class="check-circle' + (done ? " done" : "") + '" data-todo-toggle="' + esc(r.id)
+          + '" aria-label="' + (done ? "未完了に戻す" : "完了にする") + '">✓</button>'
+          + '<button type="button" class="todo-main" data-todo-open="' + esc(r.id) + '">'
+          + '<span class="todo-title"' + (done ? ' style="color:var(--ink-3);text-decoration:line-through"' : "") + ">" + esc(r.title) + "</span>"
+          + '<span class="todo-meta"><span class="' + (overdue ? "overdue" : "") + '">'
+          + (overdue ? "期限切れ ・ " : "") + esc(fmtDayLabel(r.date)) + "</span>"
+          + '<span class="asg-chip"><i style="background:' + asg.color + '"></i>' + esc(asg.name) + "</span>"
+          + (rep ? "<span>繰り返し：" + rep + "</span>" : "")
+          + "</span></button></div>"
+          + (done ? rxnRowHtml(r) : "")
+          + "</div>";
+      }
+      function renderTodo() {
+        const body = el("todoBody");
+        if (!body) return;
+        const open = HUB.todos.filter(function (r) { return r.props.done !== "1"; })
+          .slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+        const done = HUB.todos.filter(function (r) { return r.props.done === "1"; })
+          .slice().sort(function (a, b) { return (b.updated || "") < (a.updated || "") ? -1 : 1; });
+        let html = "";
+        if (!open.length && !done.length) {
+          html += '<p class="hub-empty">ToDoはまだありません。「＋ 追加」から家族のやることを登録しましょう。</p>';
+        }
+        if (open.length) {
+          html += '<div class="record-list">' + open.map(todoCardHtml).join("") + "</div>";
+        } else if (done.length) {
+          html += '<p class="hub-empty">未完了のToDoはありません。おつかれさまでした。</p>';
+        }
+        if (done.length) {
+          html += '<h3 class="hub-h3">完了済み</h3><div class="record-list">' + done.map(todoCardHtml).join("") + "</div>";
+        }
+        body.innerHTML = html;
+        body.querySelectorAll("[data-todo-toggle]").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            const rec = findHubRecord("todo", btn.getAttribute("data-todo-toggle"));
+            if (rec) toggleTodoDone(rec);
+          });
+        });
+        body.querySelectorAll("[data-todo-open]").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            const rec = findHubRecord("todo", btn.getAttribute("data-todo-open"));
+            if (rec) openTodoForm(rec);
+          });
+        });
+      }
+      function openTodoForm(rec) {
+        const isEdit = !!rec;
+        let pickedAsg = isEdit ? (rec.props.asg || "c") : "c";
+        const chips = MEMBER_ORDER.map(function (k) {
+          const m = MEMBERS[k];
+          const sel = k === pickedAsg;
+          return '<button type="button" class="member-pick" data-apick="' + k + '" aria-pressed="' + sel + '">'
+            + '<i style="background:' + m.color + '"></i>' + esc(m.name) + "</button>";
+        }).join("");
+        const rep = isEdit ? (rec.props.rep || "none") : "none";
+        const repOptions = [["none", "繰り返さない"], ["daily", "毎日"], ["weekly", "毎週"], ["monthly", "毎月"]]
+          .map(function (o) {
+            return '<option value="' + o[0] + '"' + (rep === o[0] ? " selected" : "") + ">" + o[1] + "</option>";
+          }).join("");
+        openSheet(
+          '<form id="todoForm" novalidate>'
+          + '<div class="sheet-head"><button type="button" class="sh-cancel" id="tCancelBtn">キャンセル</button>'
+          + '<span class="sh-title">' + (isEdit ? "ToDoを編集" : "ToDoを追加") + '</span>'
+          + '<button type="submit" class="sh-save" id="tSaveBtn">' + (isEdit ? "保存" : "追加") + "</button></div>"
+          + '<input class="title-input" id="tTitle" type="text" placeholder="やること" value="' + esc(isEdit ? rec.title : "") + '" autocomplete="off" />'
+          + '<div class="f-row"><span class="f-name">担当</span><div class="f-body start"><div class="member-picker" id="tAsgPicker">' + chips + "</div></div></div>"
+          + '<div class="f-row"><span class="f-name">期日</span><div class="f-body">'
+          + '<input class="dt-input" id="tDue" type="date" value="' + esc(isEdit ? rec.date : todayKey()) + '" aria-label="期日" /></div></div>'
+          + '<div class="f-row"><span class="f-name">繰り返し</span><div class="f-body">'
+          + '<select class="form-input" id="tRepeat" style="width:auto">' + repOptions + "</select></div></div>"
+          + '<p class="form-error" id="tError" hidden></p>'
+          + (isEdit ? '<div class="sheet-actions"><button type="button" class="btn btn-danger" id="tDeleteBtn">このToDoを削除</button></div>' : "")
+          + "</form>"
+        );
+        el("tAsgPicker").addEventListener("click", function (e) {
+          const btn = e.target.closest("[data-apick]");
+          if (!btn) return;
+          pickedAsg = btn.getAttribute("data-apick");
+          document.querySelectorAll("#tAsgPicker .member-pick").forEach(function (n) {
+            n.setAttribute("aria-pressed", String(n.getAttribute("data-apick") === pickedAsg));
+          });
+        });
+        el("tCancelBtn").addEventListener("click", closeSheet);
+        if (isEdit) {
+          const delBtn = el("tDeleteBtn");
+          delBtn.addEventListener("click", async function () {
+            if (!delBtn.classList.contains("armed")) {
+              delBtn.classList.add("armed"); delBtn.textContent = "本当に削除する"; return;
+            }
+            delBtn.disabled = true;
+            try { await hubDelete(rec); closeSheet(); toast("ToDoを削除しました"); }
+            catch (e) { toast("削除に失敗しました：" + friendlyErrorMessage(e)); delBtn.disabled = false; }
+          });
+        }
+        el("todoForm").addEventListener("submit", async function (e) {
+          e.preventDefault();
+          const title = el("tTitle").value.trim();
+          const due = el("tDue").value;
+          const repVal = el("tRepeat").value;
+          const errEl = el("tError");
+          function fail(msg) { errEl.textContent = msg; errEl.hidden = false; }
+          if (!title) return fail("やることを入力してください");
+          if (!due) return fail("期日を選んでください");
+          const saveBtn = el("tSaveBtn");
+          saveBtn.disabled = true; saveBtn.textContent = "保存中…";
+          try {
+            if (isEdit) {
+              rec.title = title; rec.date = due;
+              rec.props.asg = pickedAsg; rec.props.rep = repVal;
+              await hubUpdate(rec);
+              toast("ToDoを更新しました");
+            } else {
+              await hubCreate({
+                type: "todo", title: title, date: due, memo: "",
+                props: { asg: pickedAsg, done: "0", rep: repVal }
+              });
+              toast("ToDoを追加しました");
+            }
+            closeSheet();
+            renderHub();
+          } catch (err) {
+            fail("保存に失敗しました：" + friendlyErrorMessage(err));
+            saveBtn.disabled = false; saveBtn.textContent = isEdit ? "保存" : "追加";
+          }
+        });
+        setTimeout(function () { el("tTitle").focus(); }, 60);
+      }
+
+      /* =====================================================
+         買い物リスト（売り場順ソート＋購入履歴）
+         ===================================================== */
+      function shopRowHtml(it) {
+        return '<div class="shop-row">'
+          + '<button type="button" class="check-circle" data-shop-toggle="' + esc(it.id) + '" aria-label="買ったことにする"></button>'
+          + '<span class="shop-main"><span class="todo-title">' + esc(it.name) + "</span></span>"
+          + (HUB.shopSort === "added" ? '<span class="shop-aisle-tag">' + esc(it.aisle || "その他") + "</span>" : "")
+          + '<button type="button" class="shop-undo" data-shop-del="' + esc(it.id) + '">削除</button></div>';
+      }
+      function shopBoughtRowHtml(it) {
+        const d = it.boughtAt ? new Date(it.boughtAt) : null;
+        const when = d && !isNaN(d.getTime()) ? (d.getMonth() + 1) + "/" + d.getDate() : "";
+        return '<div class="shop-row done">'
+          + '<button type="button" class="check-circle done" data-shop-toggle="' + esc(it.id) + '" aria-label="リストに戻す">✓</button>'
+          + '<span class="shop-main"><span class="todo-title">' + esc(it.name) + "</span>"
+          + '<span class="todo-meta"><span>' + esc(it.aisle || "その他") + (when ? " ・ " + when + "に購入" : "") + "</span></span></span>"
+          + '<button type="button" class="shop-undo" data-shop-del="' + esc(it.id) + '">削除</button></div>';
+      }
+      function renderShop() {
+        const body = el("shopBody");
+        if (!body) return;
+        const aisleOptions = AISLES.map(function (a) { return '<option value="' + a + '">' + a + "</option>"; }).join("");
+        let html = '<div class="shop-add">'
+          + '<input class="form-input shop-name-input" id="shopNameInput" type="text" placeholder="買うもの（例：牛乳）" autocomplete="off">'
+          + '<select class="form-input" id="shopAisleSelect" aria-label="売り場">' + aisleOptions + "</select>"
+          + '<button type="button" class="hub-add" id="shopAddBtn">追加</button></div>'
+          + '<div class="seg-row"><span class="seg-label">並び替え</span>'
+          + '<button type="button" class="btn-mini" data-shop-sort="aisle" aria-pressed="' + (HUB.shopSort === "aisle") + '">売り場順</button>'
+          + '<button type="button" class="btn-mini" data-shop-sort="added" aria-pressed="' + (HUB.shopSort === "added") + '">追加順</button></div>';
+        const openItems = HUB.shopItems.filter(function (it) { return !it.done; });
+        const bought = HUB.shopItems.filter(function (it) { return it.done; })
+          .slice().sort(function (a, b) { return (b.boughtAt || "") < (a.boughtAt || "") ? -1 : 1; });
+        if (!openItems.length) {
+          html += '<p class="hub-empty">買い物リストは空です。上の欄から追加しましょう。</p>';
+        } else if (HUB.shopSort === "aisle") {
+          AISLES.forEach(function (a) {
+            const group = openItems.filter(function (it) { return (it.aisle || "その他") === a; });
+            if (!group.length) return;
+            html += '<h4 class="shop-group-h">' + esc(a) + '</h4><div class="shop-list">' + group.map(shopRowHtml).join("") + "</div>";
+          });
+        } else {
+          html += '<div class="shop-list">' + openItems.map(shopRowHtml).join("") + "</div>";
+        }
+        if (bought.length) {
+          html += '<h3 class="hub-h3">購入履歴</h3><div class="shop-list">' + bought.map(shopBoughtRowHtml).join("") + "</div>"
+            + '<button type="button" class="btn-mini" id="shopClearHistory" style="margin-top:10px">履歴をすべて消す</button>';
+        }
+        body.innerHTML = html;
+        function addFromForm() {
+          const input = el("shopNameInput");
+          const name = input.value.trim();
+          if (!name) { input.focus(); return; }
+          HUB.shopItems.push({
+            id: "it" + Date.now().toString(36) + Math.floor(Math.random() * 1000),
+            name: name, aisle: el("shopAisleSelect").value || "その他",
+            done: false, addedAt: new Date().toISOString(), boughtAt: ""
+          });
+          hubSaveShop();
+        }
+        el("shopAddBtn").addEventListener("click", addFromForm);
+        el("shopNameInput").addEventListener("keydown", function (e) {
+          if (e.key === "Enter") { e.preventDefault(); addFromForm(); }
+        });
+        body.querySelectorAll("[data-shop-sort]").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            HUB.shopSort = btn.getAttribute("data-shop-sort");
+            renderShop();
+          });
+        });
+        body.querySelectorAll("[data-shop-toggle]").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            const it = HUB.shopItems.find(function (x) { return x.id === btn.getAttribute("data-shop-toggle"); });
+            if (!it) return;
+            it.done = !it.done;
+            it.boughtAt = it.done ? new Date().toISOString() : "";
+            hubSaveShop();
+          });
+        });
+        body.querySelectorAll("[data-shop-del]").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            HUB.shopItems = HUB.shopItems.filter(function (x) { return x.id !== btn.getAttribute("data-shop-del"); });
+            hubSaveShop();
+          });
+        });
+        const clearBtn = el("shopClearHistory");
+        if (clearBtn) clearBtn.addEventListener("click", function () {
+          HUB.shopItems = HUB.shopItems.filter(function (x) { return !x.done; });
+          hubSaveShop();
+        });
+      }
+
+      /* =====================================================
+         アルバム（月ごとに自動整理）
+         ===================================================== */
+      function renderAlbum() {
+        const body = el("albumBody");
+        if (!body) return;
+        if (!HUB.photos.length) {
+          body.innerHTML = '<p class="hub-empty">写真はまだありません。「＋ 写真を追加」から家族の写真を残しましょう。追加した写真は月ごとに自動で整理されます。</p>';
+          return;
+        }
+        const groups = {};
+        HUB.photos.forEach(function (r) {
+          const ym = r.date.slice(0, 7);
+          if (!groups[ym]) groups[ym] = [];
+          groups[ym].push(r);
+        });
+        let html = "";
+        Object.keys(groups).sort().reverse().forEach(function (ym) {
+          const p = ym.split("-");
+          html += '<div class="album-month-h"><h3>' + (+p[0]) + "年" + (+p[1]) + "月</h3><span>" + groups[ym].length + "枚</span></div>";
+          html += '<div class="album-grid">' + groups[ym].map(function (r) {
+            return '<button type="button" class="album-cell" data-photo-open="' + esc(r.id) + '" aria-label="' + esc(fmtDayLabel(r.date)) + 'の写真">'
+              + '<img src="' + esc(r.memo) + '" alt="' + esc(r.props.pmemo || fmtDayLabel(r.date) + "の写真") + '" loading="lazy"></button>';
+          }).join("") + "</div>";
+        });
+        body.innerHTML = html;
+        body.querySelectorAll("[data-photo-open]").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            const rec = findHubRecord("photo", btn.getAttribute("data-photo-open"));
+            if (rec) openPhotoDetail(rec);
+          });
+        });
+      }
+      function compressImageFile(file) {
+        return new Promise(function (resolve, reject) {
+          const url = URL.createObjectURL(file);
+          const img = new Image();
+          img.onload = function () {
+            try {
+              const maxSide = 640;
+              const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+              const c = document.createElement("canvas");
+              c.width = Math.max(1, Math.round(img.width * scale));
+              c.height = Math.max(1, Math.round(img.height * scale));
+              c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+              URL.revokeObjectURL(url);
+              resolve(c.toDataURL("image/jpeg", 0.75));
+            } catch (e) { reject(e); }
+          };
+          img.onerror = function () { URL.revokeObjectURL(url); reject(new Error("画像を読み込めませんでした")); };
+          img.src = url;
+        });
+      }
+      function openPhotoForm() {
+        let dataUrl = "";
+        openSheet(
+          '<div class="sheet-head"><button type="button" class="sh-cancel" id="pCancelBtn">キャンセル</button>'
+          + '<span class="sh-title">写真を追加</span>'
+          + '<button type="button" class="sh-save" id="pSaveBtn">追加</button></div>'
+          + '<div class="form-row"><button type="button" class="photo-file-btn" id="photoPickBtn">写真を選ぶ</button>'
+          + '<input type="file" id="photoFileInput" accept="image/*" hidden>'
+          + '<img class="photo-preview" id="photoPreviewImg" alt="" hidden></div>'
+          + '<div class="f-row"><span class="f-name">日付</span><div class="f-body">'
+          + '<input class="dt-input" id="pDate" type="date" value="' + todayKey() + '" aria-label="写真の日付" /></div></div>'
+          + '<div class="form-row"><label class="f-label" for="pMemo">ひとこと</label>'
+          + '<input class="form-input" id="pMemo" type="text" maxlength="200" placeholder="例：初めての寝返り" autocomplete="off"></div>'
+          + '<p class="form-error" id="pError" hidden></p>'
+        );
+        const fileInput = el("photoFileInput");
+        el("photoPickBtn").addEventListener("click", function () { fileInput.click(); });
+        fileInput.addEventListener("change", async function () {
+          const f = fileInput.files && fileInput.files[0];
+          if (!f) return;
+          const errEl = el("pError");
+          try {
+            dataUrl = await compressImageFile(f);
+            const img = el("photoPreviewImg");
+            img.src = dataUrl;
+            img.hidden = false;
+            el("photoPickBtn").textContent = "写真を選び直す";
+            errEl.hidden = true;
+          } catch (e) {
+            errEl.textContent = "写真を読み込めませんでした。別の写真でお試しください";
+            errEl.hidden = false;
+          }
+        });
+        el("pCancelBtn").addEventListener("click", closeSheet);
+        el("pSaveBtn").addEventListener("click", async function () {
+          const errEl = el("pError");
+          function fail(msg) { errEl.textContent = msg; errEl.hidden = false; }
+          if (!dataUrl) return fail("写真を選んでください");
+          const date = el("pDate").value;
+          if (!date) return fail("日付を選んでください");
+          const saveBtn = el("pSaveBtn");
+          saveBtn.disabled = true; saveBtn.textContent = "保存中…";
+          try {
+            await hubCreate({
+              type: "photo", title: "写真", date: date, memo: dataUrl,
+              props: { pmemo: el("pMemo").value.trim() }
+            });
+            toast("写真を追加しました");
+            closeSheet();
+            renderHub();
+          } catch (e) {
+            fail("保存に失敗しました：" + friendlyErrorMessage(e));
+            saveBtn.disabled = false; saveBtn.textContent = "追加";
+          }
+        });
+      }
+      function openPhotoDetail(rec) {
+        openSheet(
+          '<img class="photo-preview" src="' + esc(rec.memo) + '" alt="家族の写真">'
+          + '<div class="detail-row"><span class="dr-name">日付</span><span>' + esc(fmtDayLabel(rec.date)) + "</span></div>"
+          + (rec.props.pmemo ? '<div class="detail-row"><span class="dr-name">ひとこと</span><span>' + esc(rec.props.pmemo) + "</span></div>" : "")
+          + rxnRowHtml(rec)
+          + '<div class="sheet-actions">'
+          + '<button type="button" class="btn btn-ghost" id="photoCloseBtn">閉じる</button>'
+          + '<button type="button" class="btn btn-danger" id="photoDeleteBtn">削除</button>'
+          + "</div>"
+        );
+        el("photoCloseBtn").addEventListener("click", closeSheet);
+        const delBtn = el("photoDeleteBtn");
+        delBtn.addEventListener("click", async function () {
+          if (!delBtn.classList.contains("armed")) {
+            delBtn.classList.add("armed"); delBtn.textContent = "本当に削除する"; return;
+          }
+          delBtn.disabled = true;
+          try { await hubDelete(rec); closeSheet(); toast("写真を削除しました"); }
+          catch (e) { toast("削除に失敗しました：" + friendlyErrorMessage(e)); delBtn.disabled = false; }
+        });
+      }
+
+      /* =====================================================
+         まとめ（お知らせ＋月次自動サマリー）
+         ===================================================== */
+      function activityItems() {
+        const items = [];
+        HUB.growth.forEach(function (r) {
+          const m = MEMBERS[r.props.child] || MEMBERS.c;
+          items.push({
+            t: r.created || r.updated, color: m.color,
+            text: m.name + "の成長記録が追加されました（" + fmtDayLabel(r.date) + "）"
+          });
+        });
+        HUB.todos.forEach(function (r) {
+          if (r.props.done === "1") {
+            items.push({ t: r.updated, color: "#0b8043", text: "ToDo「" + r.title + "」が完了しました" });
+          } else {
+            items.push({ t: r.created, color: "#c53727", text: "ToDo「" + r.title + "」が追加されました（期限：" + fmtDayLabel(r.date) + "）" });
+          }
+        });
+        HUB.photos.forEach(function (r) {
+          items.push({
+            t: r.created || r.updated, color: "#e67c73",
+            text: "アルバムに写真が追加されました（" + fmtDayLabel(r.date) + "）"
+          });
+        });
+        if (HUB.shopUpdated) {
+          items.push({ t: HUB.shopUpdated, color: "#2b6cb0", text: "買い物リストが更新されました" });
+        }
+        items.sort(function (a, b) { return (b.t || "") < (a.t || "") ? -1 : ((b.t || "") > (a.t || "") ? 1 : 0); });
+        return items.slice(0, 30);
+      }
+      /* まとめ画面でカレンダーの読み込み範囲外の月を見るとき、その月の
+         予定だけを取得してキャッシュする（祝日は件数に含めない） */
+      async function loadSummaryMonth(prefix, y, m) {
+        if (state.preview || !state.calendarId) return;
+        if (!HUB.sumCache) HUB.sumCache = {};
+        if (HUB.sumCache[prefix] || HUB.sumLoading === prefix) return;
+        HUB.sumLoading = prefix;
+        try {
+          const qs = new URLSearchParams({
+            singleEvents: "true", orderBy: "startTime", maxResults: "2500",
+            timeMin: new Date(y, m, 1).toISOString(),
+            timeMax: new Date(y, m + 1, 1).toISOString()
+          });
+          const data = await api("/calendars/" + encodeURIComponent(state.calendarId) + "/events?" + qs.toString());
+          HUB.sumCache[prefix] = (data.items || []).map(function (item) {
+            return normalizeEvent(item, state.calendarId, false);
+          }).filter(function (ev) { return !ev.hub; });
+          if (HUB.tab === "summary") renderSummary();
+        } catch (e) { console.warn("summary month load failed", e); }
+        finally { if (HUB.sumLoading === prefix) HUB.sumLoading = null; }
+      }
+      function renderSummary() {
+        const body = el("summaryBody");
+        if (!body) return;
+        if (!HUB.summaryYM) {
+          const n = new Date();
+          HUB.summaryYM = { y: n.getFullYear(), m: n.getMonth() };
+        }
+        const ym = HUB.summaryYM;
+        const prefix = ym.y + "-" + pad2(ym.m + 1);
+        const startKey = prefix + "-01";
+        const lastDay = new Date(ym.y, ym.m + 1, 0).getDate();
+        const endKey = prefix + "-" + pad2(lastDay);
+        /* お知らせ（未読は開く前に判定して強調表示する） */
+        const seen = hubSeenAt();
+        const acts = activityItems();
+        let html = '<h3 class="hub-h3" style="margin-top:2px">お知らせ</h3><div class="sum-card"><div class="activity-list">';
+        if (!acts.length) {
+          html += '<p class="hub-empty" style="padding:4px 0">新しいお知らせはありません</p>';
+        }
+        acts.forEach(function (a) {
+          const unread = a.t && a.t > seen;
+          html += '<div class="activity-item' + (unread ? " unread" : "") + '">'
+            + '<span class="activity-dot" style="background:' + a.color + '"></span>'
+            + '<span class="a-main"><span class="a-text">' + esc(a.text) + "</span></span>"
+            + '<span class="a-time">' + esc(relTime(a.t)) + "</span></div>";
+        });
+        html += "</div></div>";
+        /* 月次サマリー */
+        let monthEvents;
+        const cachedMonth = HUB.sumCache ? HUB.sumCache[prefix] : null;
+        if (cachedMonth) {
+          monthEvents = cachedMonth.filter(function (ev) {
+            return !ev.isHoliday && ev.startDate <= endKey && ev.endDate >= startKey;
+          });
+        } else {
+          monthEvents = state.events.filter(function (ev) {
+            return !ev.hub && !ev.isHoliday && ev.startDate <= endKey && ev.endDate >= startKey;
+          });
+          /* カレンダーの読み込み範囲（表示月と前後1か月）から外れた月は、
+             state.events にその月の予定が入っていないため、その月分を
+             取りに行ってから数え直す（0件と誤って表示しないため） */
+          const vpKey = state.viewYear + "-" + pad2(state.viewMonth + 1);
+          const ppS = monthShift(state.viewYear, state.viewMonth, -1);
+          const npS = monthShift(state.viewYear, state.viewMonth, 1);
+          const inLoadedRange = [vpKey,
+            ppS.y + "-" + pad2(ppS.m + 1), npS.y + "-" + pad2(npS.m + 1)].indexOf(prefix) >= 0;
+          if (!inLoadedRange) loadSummaryMonth(prefix, ym.y, ym.m);
+        }
+        const growthMonth = HUB.growth.filter(function (r) { return r.date.indexOf(prefix) === 0; });
+        /* 完了・購入の月判定は端末のローカル日付で行う（UTC文字列の
+           接頭辞で判定すると、月初の深夜〜朝の分が前月にずれる） */
+        const todosDoneMonth = HUB.todos.filter(function (r) {
+          if (r.props.done !== "1" || !r.updated) return false;
+          const d = new Date(r.updated);
+          return !isNaN(d.getTime()) && d.getFullYear() === ym.y && d.getMonth() === ym.m;
+        });
+        const photosMonth = HUB.photos.filter(function (r) { return r.date.indexOf(prefix) === 0; });
+        const boughtMonth = HUB.shopItems.filter(function (it) {
+          if (!it.done || !it.boughtAt) return false;
+          const d = new Date(it.boughtAt);
+          return !isNaN(d.getTime()) && d.getFullYear() === ym.y && d.getMonth() === ym.m;
+        });
+        html += '<div class="sum-nav" style="margin:18px 0 10px">'
+          + '<button type="button" class="mp-year-btn" id="sumPrev" aria-label="前の月">‹</button>'
+          + '<span class="sum-title" style="flex:1">' + ym.y + "年" + (ym.m + 1) + "月のまとめ</span>"
+          + '<button type="button" class="mp-year-btn" id="sumNext" aria-label="次の月">›</button></div>';
+        html += '<div class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(96px,1fr))">'
+          + '<div class="stat-card"><div class="s-label">予定</div><div class="s-value">' + monthEvents.length + ' <small>件</small></div></div>'
+          + '<div class="stat-card"><div class="s-label">ToDo完了</div><div class="s-value">' + todosDoneMonth.length + ' <small>件</small></div></div>'
+          + '<div class="stat-card"><div class="s-label">成長記録</div><div class="s-value">' + growthMonth.length + ' <small>件</small></div></div>'
+          + '<div class="stat-card"><div class="s-label">写真</div><div class="s-value">' + photosMonth.length + ' <small>枚</small></div></div>'
+          + '<div class="stat-card"><div class="s-label">買ったもの</div><div class="s-value">' + boughtMonth.length + ' <small>点</small></div></div>'
+          + "</div>";
+        /* 予定（担当別） */
+        const perMember = MEMBER_ORDER.map(function (k) {
+          const n = monthEvents.filter(function (ev) { return memberOf(ev) === k; }).length;
+          return n > 0 ? { m: MEMBERS[k], n: n } : null;
+        }).filter(Boolean);
+        html += '<div class="sum-card"><h3>予定</h3>';
+        if (!monthEvents.length) {
+          html += '<p class="sum-line"><span class="muted">この月の予定はありません</span></p>';
+        } else {
+          html += '<p class="sum-line">家族の予定は全部で ' + monthEvents.length + ' 件ありました。</p>';
+          if (perMember.length) {
+            html += '<div class="sum-member-row">' + perMember.map(function (p) {
+              return '<span class="sum-member"><i style="background:' + p.m.color + '"></i>' + esc(p.m.name) + " " + p.n + "件</span>";
+            }).join("") + "</div>";
+          }
+        }
+        html += "</div>";
+        /* 成長 */
+        html += '<div class="sum-card"><h3>成長記録</h3>';
+        const childLines = hubChildKeys().map(function (k) {
+          const recs = HUB.growth.filter(function (r) {
+            return (r.props.child || "d") === k && r.date <= endKey;
+          });
+          if (!recs.length) return null;
+          const latest = recs[recs.length - 1];
+          const prev = recs[recs.length - 2];
+          const parts = [];
+          if (latest.props.h) parts.push("身長 " + parseFloat(latest.props.h).toFixed(1) + "cm" + (prev && prev.props.h ? "（前回比 " + fmtDelta(parseFloat(latest.props.h) - parseFloat(prev.props.h), "cm").replace("前回 ", "") + "）" : ""));
+          if (latest.props.w) parts.push("体重 " + parseFloat(latest.props.w).toFixed(1) + "kg" + (prev && prev.props.w ? "（前回比 " + fmtDelta(parseFloat(latest.props.w) - parseFloat(prev.props.w), "kg").replace("前回 ", "") + "）" : ""));
+          const age = ageText(HUB.birthdays[k], latest.date);
+          return '<p class="sum-line"><span class="asg-chip"><i style="background:' + MEMBERS[k].color + '"></i>' + esc(MEMBERS[k].name) + "</span> "
+            + esc(parts.join(" ・ ") || "メモの記録") + ' <span class="muted">' + esc(fmtDayLabel(latest.date)) + (age ? " ・ " + age : "") + "</span></p>";
+        }).filter(Boolean);
+        if (childLines.length) html += childLines.join("");
+        else html += '<p class="sum-line"><span class="muted">この月までの成長記録はありません</span></p>';
+        html += "</div>";
+        /* ToDo完了 */
+        html += '<div class="sum-card"><h3>完了したToDo</h3>';
+        if (todosDoneMonth.length) {
+          html += todosDoneMonth.slice(0, 5).map(function (r) {
+            return '<p class="sum-line">✓ ' + esc(r.title) + "</p>";
+          }).join("");
+          if (todosDoneMonth.length > 5) html += '<p class="sum-line"><span class="muted">ほか ' + (todosDoneMonth.length - 5) + " 件</span></p>";
+        } else {
+          html += '<p class="sum-line"><span class="muted">この月に完了したToDoはありません</span></p>';
+        }
+        html += "</div>";
+        /* 写真 */
+        if (photosMonth.length) {
+          html += '<div class="sum-card"><h3>この月の写真</h3><div class="sum-thumbs">'
+            + photosMonth.slice(0, 8).map(function (r) {
+              return '<img src="' + esc(r.memo) + '" alt="' + esc(r.props.pmemo || "家族の写真") + '" loading="lazy">';
+            }).join("") + "</div></div>";
+        }
+        /* 買い物 */
+        if (boughtMonth.length) {
+          html += '<div class="sum-card"><h3>買ったもの</h3><p class="sum-line">'
+            + esc(boughtMonth.map(function (it) { return it.name; }).join("、")) + "</p></div>";
+        }
+        body.innerHTML = html;
+        el("sumPrev").addEventListener("click", function () {
+          const s = monthShift(HUB.summaryYM.y, HUB.summaryYM.m, -1);
+          HUB.summaryYM = { y: s.y, m: s.m };
+          renderSummary();
+        });
+        el("sumNext").addEventListener("click", function () {
+          const s = monthShift(HUB.summaryYM.y, HUB.summaryYM.m, 1);
+          HUB.summaryYM = { y: s.y, m: s.m };
+          renderSummary();
+        });
+        /* お知らせを開いたので既読にする（未読強調はこの表示で最後） */
+        hubMarkSeen();
+      }
+
+      /* =====================================================
+         プレビュー用サンプル（家族ハブ分）
+         ===================================================== */
+      function previewPhotoSvg(hue) {
+        const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="640">'
+          + '<rect width="640" height="640" fill="hsl(' + hue + ',65%,78%)"/>'
+          + '<circle cx="480" cy="150" r="70" fill="hsl(45,95%,65%)"/>'
+          + '<rect y="430" width="640" height="210" fill="hsl(' + ((hue + 80) % 360) + ',45%,55%)"/>'
+          + '<circle cx="210" cy="390" r="95" fill="hsl(' + hue + ',50%,60%)"/>'
+          + '<circle cx="350" cy="410" r="72" fill="hsl(' + ((hue + 40) % 360) + ',55%,50%)"/>'
+          + "</svg>";
+        return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+      }
+      function seedHubPreview() {
+        const now = new Date();
+        function dk(off) { return dateKey(addDays(new Date(now.getFullYear(), now.getMonth(), now.getDate()), off)); }
+        function isoHoursAgo(h) { return new Date(Date.now() - h * 3600000).toISOString(); }
+        let seq = 0;
+        function mk(type, date, title, memo, props, createdH, updatedH) {
+          return {
+            id: "hub-pv-" + (++seq), type: type, date: date, title: title, memo: memo || "",
+            props: Object.assign({ fh: "1", ft: type }, props || {}),
+            created: isoHoursAgo(createdH || 50), updated: isoHoursAgo(updatedH || 50)
+          };
+        }
+        HUB.growth = [
+          mk("growth", dk(-300), "成長記録", "", { child: "d", h: "88.2", w: "13.1" }, 5000, 5000),
+          mk("growth", dk(-210), "成長記録", "", { child: "d", h: "92.5", w: "14.0" }, 4000, 4000),
+          mk("growth", dk(-120), "成長記録", "つかまり立ちが上手になった", { child: "d", h: "96.8", w: "14.8" }, 3000, 3000),
+          mk("growth", dk(-30), "成長記録", "", { child: "d", h: "99.4", w: "15.3", rxn: JSON.stringify({ heart: 2, good: 1 }) }, 700, 700),
+          mk("growth", dk(-64), "成長記録", "", { child: "e", h: "58.4", w: "6.2" }, 1500, 1500),
+          mk("growth", dk(-33), "成長記録", "寝返りした", { child: "e", h: "61.0", w: "6.9" }, 800, 800),
+          mk("growth", dk(-5), "成長記録", "", { child: "e", h: "62.3", w: "7.2", rxn: JSON.stringify({ heart: 1 }) }, 100, 100)
+        ];
+        HUB.todos = [
+          mk("todo", dk(2), "保育園の歯科健診の回答", "", { asg: "a", done: "0", rep: "none" }, 30, 30),
+          mk("todo", dk(-1), "誕生日旅行のホテルを予約", "", { asg: "b", done: "0", rep: "none" }, 60, 60),
+          mk("todo", dk(0), "オムツとおしりふきを買う", "", { asg: "c", done: "0", rep: "weekly" }, 20, 20),
+          mk("todo", dk(-3), "予防接種の予約", "", { asg: "a", done: "1", rep: "none", rxn: JSON.stringify({ thanks: 1 }) }, 90, 5)
+        ];
+        HUB.photos = [
+          mk("photo", dk(-2), "写真", previewPhotoSvg(200), { pmemo: "公園でピクニック" }, 26, 26),
+          mk("photo", dk(-9), "写真", previewPhotoSvg(150), { pmemo: "" }, 200, 200),
+          mk("photo", dk(-40), "写真", previewPhotoSvg(20), { pmemo: "初めての寝返り" }, 900, 900),
+          mk("photo", dk(-75), "写真", previewPhotoSvg(280), { pmemo: "家族でおでかけ" }, 1700, 1700)
+        ];
+        HUB.shopItems = [
+          { id: "it-pv1", name: "牛乳", aisle: "乳製品・卵", done: false, addedAt: isoHoursAgo(10), boughtAt: "" },
+          { id: "it-pv2", name: "卵 10個", aisle: "乳製品・卵", done: false, addedAt: isoHoursAgo(10), boughtAt: "" },
+          { id: "it-pv3", name: "ほうれん草", aisle: "青果", done: false, addedAt: isoHoursAgo(9), boughtAt: "" },
+          { id: "it-pv4", name: "鶏もも肉", aisle: "精肉", done: false, addedAt: isoHoursAgo(9), boughtAt: "" },
+          { id: "it-pv5", name: "食パン", aisle: "パン", done: false, addedAt: isoHoursAgo(8), boughtAt: "" },
+          { id: "it-pv6", name: "洗濯洗剤", aisle: "日用品", done: true, addedAt: isoHoursAgo(30), boughtAt: isoHoursAgo(6) }
+        ];
+        HUB.shopEventId = "hub-pv-shop";
+        HUB.shopUpdated = isoHoursAgo(6);
+        const bD = new Date(now.getFullYear() - 3, now.getMonth() - 1, now.getDate());
+        const bE = new Date(now.getFullYear(), now.getMonth() - 4, now.getDate() - 3);
+        HUB.birthdays = { d: dateKey(bD), e: dateKey(bE) };
+        HUB.configEventId = "hub-pv-config";
+      }
+
+      /* 家族ハブの配線（タブ・追加ボタン・リアクション委譲・自動更新） */
+      document.addEventListener("DOMContentLoaded", function () {
+        document.querySelectorAll("[data-tab-btn]").forEach(function (btn) {
+          btn.addEventListener("click", function () { switchTab(btn.getAttribute("data-tab-btn")); });
+        });
+        document.querySelectorAll("[data-refresh]").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            loadHubData(true);
+            if (!state.preview) loadEvents();
+          });
+        });
+        el("growthAddBtn").addEventListener("click", function () { openGrowthForm(null); });
+        el("todoAddBtn").addEventListener("click", function () { openTodoForm(null); });
+        el("albumAddBtn").addEventListener("click", function () { openPhotoForm(); });
+        /* リアクションは画面・シートの両方に現れるため document で委譲する */
+        document.addEventListener("click", function (e) {
+          const rb = e.target.closest("[data-rxn]");
+          if (!rb) return;
+          const rec = findHubRecord(rb.getAttribute("data-rxn-type"), rb.getAttribute("data-rxn-id"));
+          if (rec) toggleReaction(rec, rb.getAttribute("data-rxn"));
+        });
+        /* 開いている間は90秒ごとに相手の変更を取り込む */
+        setInterval(function () {
+          if (document.visibilityState !== "visible") return;
+          if (state.preview || el("appScreen").hidden || !state.calendarId) return;
+          loadHubData();
+        }, 90000);
+        document.addEventListener("visibilitychange", function () {
+          if (document.visibilityState !== "visible") return;
+          if (state.preview || el("appScreen").hidden || !state.calendarId) return;
+          loadHubData();
+        });
+      });
+
+      /* =====================================================
          イベント配線
          ===================================================== */
       function moveMonth(delta) { slideTo(delta); }
@@ -2310,7 +3839,6 @@
         });
         el("prevMonthBtn").addEventListener("click", function () { moveMonth(-1); });
         el("nextMonthBtn").addEventListener("click", function () { moveMonth(1); });
-        el("todayBtn").addEventListener("click", goToday);
         el("todayBtnTop").addEventListener("click", goToday);
         el("monthTitleBtn").addEventListener("click", openMonthPicker);
         el("signOutBtn").addEventListener("click", function () {
