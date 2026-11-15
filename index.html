@@ -2691,14 +2691,18 @@
          -----------------------------------------------------
          通知サーバー（Worker）が購読情報を保管し、家族データの
          変更時に /notify で配信する。購読は端末ごとで、利用者が
-         担当を選ぶ項目はない。/notify では端末トークンだけを渡し、
-         サーバーがトークンから送信元端末を特定して、その端末
-         自身には自動で送らない（操作した端末に通知しない）。
+         担当を選ぶ項目はない。送信側は通知ONかどうかに関係なく、
+         変更した端末から必ず /notify を送る（受け手がONなら届く）。
+         /notify の認可は Google サインインのアクセストークンで行い、
+         サーバーが「ファミリーカレンダーを読めるアカウントか」を
+         確認する。自分の端末への送信は excludeEndpoint（この端末の
+         購読 endpoint）で除外する。未購読の端末からは excludeEndpoint
+         を省略して送る。
          Service Worker（sw.js）は index.html と同じ場所に置く。
          通知まわりの失敗は、予定や記録の保存を失敗扱いにしない
          よう、すべて握りつぶす（fire-and-forget）。
-         /notify の認可は、購読時にサーバーが発行する端末ごとの
-         トークン（この端末の localStorage にのみ保存）で行う。
+         購読時にサーバーが発行する端末トークン（fhPushToken）は
+         購読管理のために保存を続けるが、送信の可否はそれに依存しない。
          共通キーのような秘密情報はページ内に一切含めない。
          ===================================================== */
       const PUSH_SERVER = "https://family-push.torotorototor0228.workers.dev";
@@ -2763,23 +2767,38 @@
         if (!res.ok) throw new Error("push server error " + res.status);
         try { return await res.json(); } catch (e) { return null; }
       }
-      /* 家族への変更通知。失敗しても呼び出し元の保存処理には影響させない。
-         端末トークンが保存されていない端末からは送信しない */
+      /* この端末がプッシュ購読済みなら、その購読の endpoint を返す。
+         未購読・取得失敗なら空文字（呼び出し側は excludeEndpoint を省略する） */
+      async function pushExcludeEndpoint() {
+        try {
+          const sub = await pushGetSubscription();
+          return sub && sub.endpoint ? sub.endpoint : "";
+        } catch (e) { return ""; }
+      }
+      /* 家族への変更通知。失敗しても呼び出し元の保存処理には影響させない
+         （fire-and-forget）。送信条件は端末トークンや購読の有無に依存しない:
+         通知をONにしていない端末からの変更でも、受け手がONなら届くように、
+         サインイン中の Google アクセストークンで認可して必ず送信を試みる */
       function sendPushNotify(title, body) {
         if (state.preview) return;
-        const token = pushDeviceToken();
-        if (!token) return;
-        try {
-          fetch(PUSH_SERVER + "/notify", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              token: token,
+        const accessToken = state.accessToken;
+        if (!accessToken) return;
+        (async function () {
+          try {
+            const payload = {
+              accessToken: accessToken,
               title: title,
               body: body || ""
-            })
-          }).catch(function () {});
-        } catch (e) { /* 通知の失敗は握りつぶす */ }
+            };
+            const ep = await pushExcludeEndpoint();
+            if (ep) payload.excludeEndpoint = ep;
+            await fetch(PUSH_SERVER + "/notify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload)
+            });
+          } catch (e) { /* 通知の失敗は握りつぶす */ }
+        })();
       }
       async function refreshPushUI() {
         const statusEl = el("pushStatus");
@@ -2819,26 +2838,29 @@
           if (testBtn) testBtn.disabled = true;
         }
       }
-      /* テスト通知：家族の他の端末へ送り、届くか確認する（送信元端末はサーバーが自動で除外する） */
+      /* テスト通知：家族の他の端末へ送り、届くか確認する。
+         送信は端末トークンやこの端末の購読の有無に依存しない
+         （Google アクセストークンで認可）。この端末が購読済みなら
+         excludeEndpoint で自分自身を除外する */
       async function sendTestPush() {
         if (state.preview) { toast("プレビューではテスト通知を送れません"); return; }
         if (!pushSupported()) { toast("この端末・ブラウザではプッシュ通知に対応していません"); return; }
         const btn = el("pushTestBtn");
-        let sub = null;
-        try { sub = await pushGetSubscription(); } catch (e) {}
-        if (!sub) { toast("まず「通知をONにする」で通知を有効にしてください"); return; }
-        const token = pushDeviceToken();
-        if (!token) { toast("通知を一度OFFにして、ONにし直してください"); return; }
+        const accessToken = state.accessToken;
+        if (!accessToken) { toast("サインインが必要です。再度サインインしてください"); return; }
         try {
           if (btn) { btn.disabled = true; btn.textContent = "送信中…"; }
+          const payload = {
+            accessToken: accessToken,
+            title: "テスト通知",
+            body: "プッシュ通知が届きました。設定は完了です。"
+          };
+          const ep = await pushExcludeEndpoint();
+          if (ep) payload.excludeEndpoint = ep;
           const res = await fetch(PUSH_SERVER + "/notify", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              token: token,
-              title: "テスト通知",
-              body: "プッシュ通知が届きました。設定は完了です。"
-            })
+            body: JSON.stringify(payload)
           });
           if (!res.ok) throw new Error("push server error " + res.status);
           const data = await res.json().catch(function () { return null; });
