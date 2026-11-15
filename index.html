@@ -844,7 +844,10 @@
         background: var(--surface-2); border-radius: 12px; padding: 10px 12px; margin-top: 12px;
       }
       .birth-row label { font-size: 0.78rem; font-weight: 800; color: var(--ink-2); display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 11em; }
-      .birth-row .dt-input { background: var(--surface); }
+      /* 誕生日入力も他の日時入力と同じ固定ライト色にする。
+         以前は background: var(--surface) で上書きしていたため、ダークモードで
+         背景（濃色）に文字色（#2b2622 の濃色）が重なり読めなかった */
+      .birth-row .dt-input { background: #f5f3f0; color: #2b2622; border-color: #ddd6cf; }
 
       /* 記録・ToDo・買い物の行 */
       .record-list, .todo-list, .shop-list { display: flex; flex-direction: column; gap: 8px; }
@@ -914,11 +917,16 @@
       .album-cell { padding: 0; border-radius: 10px; overflow: hidden; min-height: 0 !important; aspect-ratio: 1; background: var(--surface-2); }
       .album-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
       .photo-preview { width: 100%; border-radius: 12px; display: block; margin-top: 6px; }
-      .photo-file-btn {
-        display: inline-flex; align-items: center; gap: 8px;
-        background: var(--surface-2); border: 1.5px dashed var(--ink-3); color: var(--ink);
-        border-radius: 12px; padding: 14px 16px; font-weight: 800; width: 100%; justify-content: center;
+      /* アルバム：Googleフォト連携カード */
+      .album-link-card h3 { font-size: 0.98rem; font-weight: 900; margin: 0 0 6px; }
+      .album-open-btn {
+        display: flex; align-items: center; justify-content: center; gap: 8px;
+        background: #c53727; color: #fff; border: 0; border-radius: 12px;
+        padding: 13px 18px; font-weight: 900; font-size: 0.95rem;
+        text-decoration: none; cursor: pointer; width: 100%; margin-top: 10px;
+        min-height: 3rem;
       }
+      .album-legacy-note { font-size: 0.83rem; color: var(--ink-2); line-height: 1.65; margin: 0 0 8px; }
 
       /* まとめ・お知らせ */
       .activity-list { display: flex; flex-direction: column; }
@@ -1079,7 +1087,7 @@
         <div class="hub-head">
           <h2 class="hub-title">アルバム</h2>
           <button type="button" class="hub-refresh" data-refresh aria-label="最新の状態に更新" title="最新の状態に更新">↻</button>
-          <button type="button" class="hub-add" id="albumAddBtn">＋ 写真を追加</button>
+          <button type="button" class="hub-add" id="albumLinkBtn">リンク設定</button>
         </div>
         <p class="hub-sync"><span class="sync-dot"></span><span data-sync-label>家族で共有中</span></p>
         <div id="albumBody"></div>
@@ -2606,16 +2614,19 @@
          相手の変更を取り込む。
          ・growth: 1件=1イベント。props: child/h/w、メモは本文
          ・todo:   1件=1イベント（期日＝開始日）。props: asg/done/rep
-         ・photo:  1枚=1イベント。本文に縮小した写真データ、props.pmemo
+         ・photo:  旧方式でアプリ内に保存した写真（1枚=1イベント。本文に
+                   縮小した写真データ、props.pmemo）。新規の写真は
+                   Googleフォトの共有アルバムで管理し、ここには残さない
          ・shop:   リスト全体を1イベントの本文JSONに保存
-         ・config: 設定（誕生日）を1イベントの本文JSONに保存
+         ・config: 設定（誕生日・Googleフォト共有アルバムのリンク）を
+                   1イベントの本文JSONに保存
          リアクションは各イベントの props.rxn（JSON）に件数を保存する
          ===================================================== */
       const HUB = {
         loaded: false, loading: false, lastLoadedAt: null,
         growth: [], todos: [], photos: [],
         shopEventId: null, shopItems: [], shopUpdated: "",
-        configEventId: null, birthdays: {},
+        configEventId: null, birthdays: {}, albumUrl: "",
         tab: "calendar", growthChild: "d", shopSort: "aisle",
         summaryYM: null, sumCache: {}, sumLoading: null
       };
@@ -2646,7 +2657,7 @@
         HUB.loaded = false; HUB.loading = false; HUB.lastLoadedAt = null;
         HUB.growth = []; HUB.todos = []; HUB.photos = [];
         HUB.shopEventId = null; HUB.shopItems = []; HUB.shopUpdated = "";
-        HUB.configEventId = null; HUB.birthdays = {}; HUB.summaryYM = null;
+        HUB.configEventId = null; HUB.birthdays = {}; HUB.albumUrl = ""; HUB.summaryYM = null;
         HUB.sumCache = {}; HUB.sumLoading = null;
         try { switchTab("calendar"); } catch (e) {}
       }
@@ -2666,7 +2677,7 @@
       function ingestHubItems(items) {
         HUB.growth = []; HUB.todos = []; HUB.photos = [];
         HUB.shopEventId = null; HUB.shopItems = []; HUB.shopUpdated = "";
-        HUB.configEventId = null; HUB.birthdays = {};
+        HUB.configEventId = null; HUB.birthdays = {}; HUB.albumUrl = "";
         (items || []).forEach(function (item) {
           const rec = hubRecordOf(item);
           if (!rec) return;
@@ -2678,7 +2689,11 @@
             try { const arr = JSON.parse(rec.memo || "[]"); if (Array.isArray(arr)) HUB.shopItems = arr; } catch (e) {}
           } else if (rec.type === "config") {
             HUB.configEventId = rec.id;
-            try { const c = JSON.parse(rec.memo || "{}"); if (c && c.birthdays) HUB.birthdays = c.birthdays; } catch (e) {}
+            try {
+              const c = JSON.parse(rec.memo || "{}");
+              if (c && c.birthdays) HUB.birthdays = c.birthdays;
+              if (c && typeof c.albumUrl === "string") HUB.albumUrl = c.albumUrl;
+            } catch (e) {}
           }
         });
         HUB.growth.sort(function (a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
@@ -2781,10 +2796,10 @@
           renderHub();
         } catch (e) { toast("買い物リストの保存に失敗しました：" + friendlyErrorMessage(e)); }
       }
-      /* 設定（誕生日）の保存 */
+      /* 設定（誕生日・アルバムリンク）の保存 */
       async function hubSaveConfig() {
         if (state.preview) { renderHub(); return; }
-        const memo = JSON.stringify({ birthdays: HUB.birthdays });
+        const memo = JSON.stringify({ birthdays: HUB.birthdays, albumUrl: HUB.albumUrl || "" });
         try {
           if (HUB.configEventId) {
             await api("/calendars/" + encodeURIComponent(state.calendarId) + "/events/" + encodeURIComponent(HUB.configEventId),
@@ -3395,31 +3410,52 @@
       }
 
       /* =====================================================
-         アルバム（月ごとに自動整理）
+         アルバム（Googleフォト共有アルバム連携）
+         -----------------------------------------------------
+         写真そのものはGoogleフォトの共有アルバムに置く。このアプリは
+         共有リンクの入口になり、リンクは家族設定（config）に保存して
+         夫婦どちらの端末からでも同じアルバムを開けるようにする。
+         旧方式でアプリ内（カレンダー）に保存した写真は、下段に
+         「アプリ内に保存済みの写真」として残し、閲覧・削除できる。
          ===================================================== */
       function renderAlbum() {
         const body = el("albumBody");
         if (!body) return;
-        if (!HUB.photos.length) {
-          body.innerHTML = '<p class="hub-empty">写真はまだありません。「＋ 写真を追加」から家族の写真を残しましょう。追加した写真は月ごとに自動で整理されます。</p>';
-          return;
-        }
-        const groups = {};
-        HUB.photos.forEach(function (r) {
-          const ym = r.date.slice(0, 7);
-          if (!groups[ym]) groups[ym] = [];
-          groups[ym].push(r);
-        });
         let html = "";
-        Object.keys(groups).sort().reverse().forEach(function (ym) {
-          const p = ym.split("-");
-          html += '<div class="album-month-h"><h3>' + (+p[0]) + "年" + (+p[1]) + "月</h3><span>" + groups[ym].length + "枚</span></div>";
-          html += '<div class="album-grid">' + groups[ym].map(function (r) {
-            return '<button type="button" class="album-cell" data-photo-open="' + esc(r.id) + '" aria-label="' + esc(fmtDayLabel(r.date)) + 'の写真">'
-              + '<img src="' + esc(r.memo) + '" alt="' + esc(r.props.pmemo || fmtDayLabel(r.date) + "の写真") + '" loading="lazy"></button>';
-          }).join("") + "</div>";
-        });
+        /* Googleフォト連携カード */
+        html += '<div class="sum-card album-link-card">';
+        if (HUB.albumUrl) {
+          html += "<h3>Googleフォトの共有アルバム</h3>"
+            + '<p class="sum-line">家族の写真はGoogleフォトで見ます。写真を追加するときも、Googleフォトアプリから共有アルバムに入れてください。</p>'
+            + '<a class="album-open-btn" href="' + esc(HUB.albumUrl) + '" target="_blank" rel="noopener noreferrer">Googleフォトでアルバムを開く</a>';
+        } else {
+          html += "<h3>Googleフォトと連携しましょう</h3>"
+            + '<p class="sum-line">Googleフォトで共有アルバムを作って、その共有リンクを設定すると、ここから家族のアルバムをすぐ開けるようになります。写真はGoogleフォトに保存されるので、画質そのままで残せます。</p>'
+            + '<button type="button" class="album-open-btn" id="albumSetLinkBtn">共有アルバムのリンクを設定</button>';
+        }
+        html += "</div>";
+        /* 旧方式でアプリ内に保存済みの写真 */
+        if (HUB.photos.length) {
+          html += '<h3 class="hub-h3">アプリ内に保存済みの写真</h3>'
+            + '<p class="album-legacy-note">以前の方式でこのアプリ内に保存した写真です。月ごとに並んでいます。これから追加する写真はGoogleフォトの共有アルバムに入れてください。</p>';
+          const groups = {};
+          HUB.photos.forEach(function (r) {
+            const ym = r.date.slice(0, 7);
+            if (!groups[ym]) groups[ym] = [];
+            groups[ym].push(r);
+          });
+          Object.keys(groups).sort().reverse().forEach(function (ym) {
+            const p = ym.split("-");
+            html += '<div class="album-month-h"><h3>' + (+p[0]) + "年" + (+p[1]) + "月</h3><span>" + groups[ym].length + "枚</span></div>";
+            html += '<div class="album-grid">' + groups[ym].map(function (r) {
+              return '<button type="button" class="album-cell" data-photo-open="' + esc(r.id) + '" aria-label="' + esc(fmtDayLabel(r.date)) + 'の写真">'
+                + '<img src="' + esc(r.memo) + '" alt="' + esc(r.props.pmemo || fmtDayLabel(r.date) + "の写真") + '" loading="lazy"></button>';
+            }).join("") + "</div>";
+          });
+        }
         body.innerHTML = html;
+        const setBtn = el("albumSetLinkBtn");
+        if (setBtn) setBtn.addEventListener("click", openAlbumLinkForm);
         body.querySelectorAll("[data-photo-open]").forEach(function (btn) {
           btn.addEventListener("click", function () {
             const rec = findHubRecord("photo", btn.getAttribute("data-photo-open"));
@@ -3427,79 +3463,54 @@
           });
         });
       }
-      function compressImageFile(file) {
-        return new Promise(function (resolve, reject) {
-          const url = URL.createObjectURL(file);
-          const img = new Image();
-          img.onload = function () {
-            try {
-              const maxSide = 640;
-              const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-              const c = document.createElement("canvas");
-              c.width = Math.max(1, Math.round(img.width * scale));
-              c.height = Math.max(1, Math.round(img.height * scale));
-              c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-              URL.revokeObjectURL(url);
-              resolve(c.toDataURL("image/jpeg", 0.75));
-            } catch (e) { reject(e); }
-          };
-          img.onerror = function () { URL.revokeObjectURL(url); reject(new Error("画像を読み込めませんでした")); };
-          img.src = url;
-        });
-      }
-      function openPhotoForm() {
-        let dataUrl = "";
+      function openAlbumLinkForm() {
+        const has = !!HUB.albumUrl;
         openSheet(
-          '<div class="sheet-head"><button type="button" class="sh-cancel" id="pCancelBtn">キャンセル</button>'
-          + '<span class="sh-title">写真を追加</span>'
-          + '<button type="button" class="sh-save" id="pSaveBtn">追加</button></div>'
-          + '<div class="form-row"><button type="button" class="photo-file-btn" id="photoPickBtn">写真を選ぶ</button>'
-          + '<input type="file" id="photoFileInput" accept="image/*" hidden>'
-          + '<img class="photo-preview" id="photoPreviewImg" alt="" hidden></div>'
-          + '<div class="f-row"><span class="f-name">日付</span><div class="f-body">'
-          + '<input class="dt-input" id="pDate" type="date" value="' + todayKey() + '" aria-label="写真の日付" /></div></div>'
-          + '<div class="form-row"><label class="f-label" for="pMemo">ひとこと</label>'
-          + '<input class="form-input" id="pMemo" type="text" maxlength="200" placeholder="例：初めての寝返り" autocomplete="off"></div>'
-          + '<p class="form-error" id="pError" hidden></p>'
+          '<div class="sheet-head"><button type="button" class="sh-cancel" id="alCancelBtn">キャンセル</button>'
+          + '<span class="sh-title">Googleフォト連携</span>'
+          + '<button type="button" class="sh-save" id="alSaveBtn">保存</button></div>'
+          + '<p class="sum-line" style="margin-bottom:10px">Googleフォトで共有アルバムを開き、「共有」からリンクを作成して、ここに貼り付けてください。設定したリンクは家族で共有され、相手の端末からも同じアルバムを開けます。</p>'
+          + '<div class="form-row"><label class="f-label" for="alUrl">共有アルバムのリンク</label>'
+          + '<input class="form-input" id="alUrl" type="url" inputmode="url" placeholder="https://photos.app.goo.gl/…" autocomplete="off" value="' + esc(HUB.albumUrl || "") + '"></div>'
+          + (has ? '<p class="sum-line"><a href="' + esc(HUB.albumUrl) + '" target="_blank" rel="noopener noreferrer">今のリンクでアルバムを開いて確認</a></p>' : "")
+          + '<p class="form-error" id="alError" hidden></p>'
+          + (has ? '<div class="sheet-actions"><button type="button" class="btn btn-danger" id="alDeleteBtn">リンクを削除</button></div>' : "")
         );
-        const fileInput = el("photoFileInput");
-        el("photoPickBtn").addEventListener("click", function () { fileInput.click(); });
-        fileInput.addEventListener("change", async function () {
-          const f = fileInput.files && fileInput.files[0];
-          if (!f) return;
-          const errEl = el("pError");
-          try {
-            dataUrl = await compressImageFile(f);
-            const img = el("photoPreviewImg");
-            img.src = dataUrl;
-            img.hidden = false;
-            el("photoPickBtn").textContent = "写真を選び直す";
-            errEl.hidden = true;
-          } catch (e) {
-            errEl.textContent = "写真を読み込めませんでした。別の写真でお試しください";
-            errEl.hidden = false;
-          }
-        });
-        el("pCancelBtn").addEventListener("click", closeSheet);
-        el("pSaveBtn").addEventListener("click", async function () {
-          const errEl = el("pError");
+        el("alCancelBtn").addEventListener("click", closeSheet);
+        el("alSaveBtn").addEventListener("click", async function () {
+          const errEl = el("alError");
           function fail(msg) { errEl.textContent = msg; errEl.hidden = false; }
-          if (!dataUrl) return fail("写真を選んでください");
-          const date = el("pDate").value;
-          if (!date) return fail("日付を選んでください");
-          const saveBtn = el("pSaveBtn");
+          const url = el("alUrl").value.trim();
+          if (!url) return fail("リンクを入力してください");
+          if (!/^https:\/\//i.test(url)) return fail("https:// で始まるリンクを貼り付けてください");
+          const saveBtn = el("alSaveBtn");
           saveBtn.disabled = true; saveBtn.textContent = "保存中…";
+          HUB.albumUrl = url;
           try {
-            await hubCreate({
-              type: "photo", title: "写真", date: date, memo: dataUrl,
-              props: { pmemo: el("pMemo").value.trim() }
-            });
-            toast("写真を追加しました");
+            await hubSaveConfig();
+            toast("アルバムのリンクを設定しました");
             closeSheet();
             renderHub();
           } catch (e) {
             fail("保存に失敗しました：" + friendlyErrorMessage(e));
-            saveBtn.disabled = false; saveBtn.textContent = "追加";
+            saveBtn.disabled = false; saveBtn.textContent = "保存";
+          }
+        });
+        const delBtn = el("alDeleteBtn");
+        if (delBtn) delBtn.addEventListener("click", async function () {
+          if (!delBtn.classList.contains("armed")) {
+            delBtn.classList.add("armed"); delBtn.textContent = "本当に削除する"; return;
+          }
+          delBtn.disabled = true;
+          HUB.albumUrl = "";
+          try {
+            await hubSaveConfig();
+            toast("アルバムのリンクを削除しました");
+            closeSheet();
+            renderHub();
+          } catch (e) {
+            toast("削除に失敗しました：" + friendlyErrorMessage(e));
+            delBtn.disabled = false;
           }
         });
       }
@@ -3698,12 +3709,17 @@
           html += '<p class="sum-line"><span class="muted">この月に完了したToDoはありません</span></p>';
         }
         html += "</div>";
-        /* 写真 */
+        /* 写真（アプリ内に保存済みの分。写真本体はGoogleフォトで管理） */
         if (photosMonth.length) {
-          html += '<div class="sum-card"><h3>この月の写真</h3><div class="sum-thumbs">'
+          html += '<div class="sum-card"><h3>この月の写真（アプリ内）</h3><div class="sum-thumbs">'
             + photosMonth.slice(0, 8).map(function (r) {
               return '<img src="' + esc(r.memo) + '" alt="' + esc(r.props.pmemo || "家族の写真") + '" loading="lazy">';
             }).join("") + "</div></div>";
+        }
+        if (HUB.albumUrl) {
+          html += '<div class="sum-card album-link-card"><h3>アルバム</h3>'
+            + '<p class="sum-line">家族の写真はGoogleフォトの共有アルバムで管理しています。</p>'
+            + '<a class="album-open-btn" href="' + esc(HUB.albumUrl) + '" target="_blank" rel="noopener noreferrer">Googleフォトでアルバムを開く</a></div>';
         }
         /* 買い物 */
         if (boughtMonth.length) {
@@ -3781,6 +3797,7 @@
         ];
         HUB.shopEventId = "hub-pv-shop";
         HUB.shopUpdated = isoHoursAgo(6);
+        HUB.albumUrl = "https://photos.google.com/";
         const bD = new Date(now.getFullYear() - 3, now.getMonth() - 1, now.getDate());
         const bE = new Date(now.getFullYear(), now.getMonth() - 4, now.getDate() - 3);
         HUB.birthdays = { d: dateKey(bD), e: dateKey(bE) };
@@ -3800,7 +3817,7 @@
         });
         el("growthAddBtn").addEventListener("click", function () { openGrowthForm(null); });
         el("todoAddBtn").addEventListener("click", function () { openTodoForm(null); });
-        el("albumAddBtn").addEventListener("click", function () { openPhotoForm(); });
+        el("albumLinkBtn").addEventListener("click", function () { openAlbumLinkForm(); });
         /* リアクションは画面・シートの両方に現れるため document で委譲する */
         document.addEventListener("click", function (e) {
           const rb = e.target.closest("[data-rxn]");
