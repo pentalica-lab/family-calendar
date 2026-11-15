@@ -196,7 +196,7 @@
         position: absolute; height: 1.14rem; line-height: 1.14rem;
         font-size: 0.72rem; font-weight: 700; color: #fff;
         padding: 0 6px; border-radius: 4px; overflow: hidden;
-        white-space: nowrap; text-overflow: ellipsis; pointer-events: auto;
+        white-space: nowrap; text-overflow: clip; pointer-events: auto;
         margin: 0 1.5px; text-align: left;
       }
       .bar.cont-l { border-top-left-radius: 2px; border-bottom-left-radius: 2px; padding-left: 3px; }
@@ -629,15 +629,19 @@
         position: absolute; top: 0; bottom: 0; z-index: 1;
         min-height: 0 !important; background: transparent; border: 0; padding: 0; margin: 0;
       }
-      /* 月セルのバーは単日でも全角5文字以上が収まる寸法にする:
-         iPhone幅(約390px)では1セル約54px。フォント0.54rem(約8.6px)＋
-         字間-0.03em＋左右パディング各2px＋バーの内側マージン合計2pxで、
-         5文字(約43px)が省略されずに入る計算 */
+      /* 月セルのバーは単日でも全角6.5文字まで詰め込む寸法にする:
+         iPhone幅(約390px)では1セル約54px、バー幅は約52px。
+         フォント0.50rem(8px)＋字間-0.08emで1文字の実効幅は約7.36px、
+         テキスト領域(バー幅52px−左右パディング各2px＝48px)に
+         6文字(約44px)＋7文字目の約半分までが入り、残りは見切れる計算。
+         入りきらないときは「…」に置き換えず text-overflow: clip で
+         文字の途中で見切らせる（見切れていることが見た目で分かる） */
       .week-bars-area .bar {
         position: absolute; z-index: 2; margin: 0;
         height: 16px; max-height: 16px; line-height: 16px; min-height: 0 !important;
-        font-size: 0.54rem; font-weight: 700; padding: 0 2px; border-radius: 3px;
-        letter-spacing: -0.03em;
+        font-size: 0.5rem; font-weight: 700; padding: 0 2px; border-radius: 3px;
+        letter-spacing: -0.08em;
+        overflow: hidden; white-space: nowrap; text-overflow: clip;
       }
       .week-bars-area .more-label {
         position: absolute; bottom: 0; z-index: 2;
@@ -686,6 +690,34 @@
       @media (prefers-color-scheme: dark) {
         .form-error { color: #ff8a7a !important; }
       }
+
+      /* ---------- 月ジャンプカード（月タイトルをタップして開く） ----------
+         年の切替（‹ ›）＋12か月のグリッド。表示中の月は濃い赤で塗り、
+         本当の今月には「今月」の小ラベルを付ける */
+      .mp-year-row {
+        display: flex; align-items: center; justify-content: space-between;
+        margin: 10px 0 12px;
+      }
+      .mp-year { font-size: 1.18rem; font-weight: 900; }
+      .mp-year-btn {
+        width: 2.6rem; height: 2.6rem; border-radius: 50%; flex: none;
+        background: var(--surface-2); color: var(--ink); font-size: 1.35rem;
+        display: inline-flex; align-items: center; justify-content: center;
+      }
+      .mp-year-btn:active { filter: brightness(0.94); }
+      .mp-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+      .mp-cell {
+        border-radius: 12px; background: var(--surface-2); color: var(--ink);
+        font-weight: 800; font-size: 1rem; padding: 12px 0 10px; min-height: 3.3rem;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+      }
+      .mp-cell small { font-size: 0.64rem; font-weight: 700; color: #c53727; line-height: 1.2; }
+      .mp-cell.current { background: #c53727; color: #ffffff; }
+      .mp-cell.current small { color: #ffd9d3; }
+      @media (prefers-color-scheme: dark) {
+        .mp-cell small { color: #ff8a7a; }
+        .mp-cell.current small { color: #ffd9d3; }
+      }
     </style>
   </head>
   <body>
@@ -724,7 +756,7 @@
       <header class="appbar">
         <div class="appbar-row">
           <button id="prevMonthBtn" class="nav-btn" type="button" aria-label="前の月">‹</button>
-          <button id="monthTitleBtn" class="month-title-btn" type="button" aria-label="今日へ戻る" title="タップで今日へ戻る">
+          <button id="monthTitleBtn" class="month-title-btn" type="button" aria-label="月を選んで移動" title="タップで月を選べます">
             <h1 class="month-title" id="monthTitle">―</h1>
           </button>
           <button id="nextMonthBtn" class="nav-btn" type="button" aria-label="次の月">›</button>
@@ -1496,9 +1528,12 @@
           const weekEnd = addDays(weekStart, 6);
           const wsKey = dateKey(weekStart), weKey = dateKey(weekEnd);
 
-          /* この週にかかる予定をセグメント化 */
+          /* この週にかかる予定をセグメント化。
+             祝日は日付数字の横の併記（.holiday-name）だけで表示し、
+             バーには出さない（同じ祝日名が二重に並ぶのを防ぐ） */
           const segs = [];
           events.forEach(function (ev) {
+            if (ev.isHoliday) return;
             if (ev.endDate < wsKey || ev.startDate > weKey) return;
             const sCol = ev.startDate <= wsKey ? 0 : (parseKey(ev.startDate) - weekStart) / 86400000;
             const eCol = ev.endDate >= weKey ? 6 : (parseKey(ev.endDate) - weekStart) / 86400000;
@@ -1531,7 +1566,8 @@
           let weekHasOverflow = false;
           for (let d0 = 0; d0 < 7; d0++) {
             const cov0 = drawn.filter(function (sg) { return sg.s <= d0 && d0 <= sg.e; }).length;
-            const ov0 = eventsOn(dateKey(addDays(weekStart, d0))).length - cov0;
+            /* 祝日はバーに出ないので「他○件」の母数からも除く */
+            const ov0 = eventsOn(dateKey(addDays(weekStart, d0))).filter(function (e2) { return !e2.isHoliday; }).length - cov0;
             overflowByDay.push(ov0 > 0 ? ov0 : 0);
             if (ov0 > 0) weekHasOverflow = true;
           }
@@ -1934,6 +1970,51 @@
         setTimeout(function () { el("fTitle").focus(); }, 60);
       }
 
+      /* 月タイトルをタップしたときに開く「月ジャンプ」カード。
+         年は ‹ › で切り替え、月をタップするとその月へ直接移動する */
+      function openMonthPicker() {
+        let py = state.viewYear;
+        const now = new Date();
+        function renderPicker() {
+          let cells = "";
+          for (let m = 0; m < 12; m++) {
+            const isCurrent = py === state.viewYear && m === state.viewMonth;
+            const isThisMonth = py === now.getFullYear() && m === now.getMonth();
+            cells += '<button type="button" class="mp-cell' + (isCurrent ? " current" : "")
+              + '" data-mp-month="' + m + '" aria-pressed="' + isCurrent + '"'
+              + ' aria-label="' + py + "年" + (m + 1) + '月を表示">' + (m + 1) + "月"
+              + (isThisMonth ? "<small>今月</small>" : "") + "</button>";
+          }
+          openSheet(
+            "<h2>月を選ぶ</h2>"
+            + '<div class="mp-year-row">'
+            + '<button type="button" class="mp-year-btn" id="mpPrevYear" aria-label="前の年">‹</button>'
+            + '<span class="mp-year">' + py + "年</span>"
+            + '<button type="button" class="mp-year-btn" id="mpNextYear" aria-label="次の年">›</button>'
+            + "</div>"
+            + '<div class="mp-grid">' + cells + "</div>"
+            + '<div class="sheet-actions">'
+            + '<button type="button" class="btn btn-ghost" id="mpCloseBtn">閉じる</button>'
+            + '<button type="button" class="btn btn-primary" id="mpTodayBtn">今月へ戻る</button>'
+            + "</div>"
+          );
+          el("mpPrevYear").addEventListener("click", function () { py--; renderPicker(); });
+          el("mpNextYear").addEventListener("click", function () { py++; renderPicker(); });
+          el("mpCloseBtn").addEventListener("click", closeSheet);
+          el("mpTodayBtn").addEventListener("click", function () { closeSheet(); goToday(); });
+          document.querySelectorAll("[data-mp-month]").forEach(function (btn) {
+            btn.addEventListener("click", function () {
+              state.viewYear = py;
+              state.viewMonth = parseInt(btn.getAttribute("data-mp-month"), 10);
+              closeSheet();
+              renderCalendar();
+              if (!state.preview) loadEvents();
+            });
+          });
+        }
+        renderPicker();
+      }
+
       function openCalendarPicker(list) {
         const items = (list || state.calendarList).map(function (c) {
           const role = c.accessRole === "owner" ? "オーナー" : (c.accessRole === "writer" ? "編集可" : "閲覧のみ");
@@ -2066,7 +2147,7 @@
         el("nextMonthBtn").addEventListener("click", function () { moveMonth(1); });
         el("todayBtn").addEventListener("click", goToday);
         el("todayBtnTop").addEventListener("click", goToday);
-        el("monthTitleBtn").addEventListener("click", goToday);
+        el("monthTitleBtn").addEventListener("click", openMonthPicker);
         el("signOutBtn").addEventListener("click", function () {
           signOut();
           toast("サインアウトしました");
