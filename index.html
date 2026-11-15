@@ -261,6 +261,7 @@
         white-space: pre-wrap; line-height: 1.7; font-size: 0.93rem; margin-top: 12px;
         background: var(--surface-2); border-radius: 10px; padding: 10px 12px;
       }
+      .detail-note { color: var(--ink-2); font-size: 0.85rem; line-height: 1.6; margin: 14px 0 0; }
       .sheet-actions { display: flex; gap: 10px; margin-top: 20px; }
       .btn {
         flex: 1; border-radius: 12px; padding: 12px; font-weight: 900; font-size: 0.97rem;
@@ -1026,6 +1027,17 @@
       function storeEmail(em) {
         try { if (em) localStorage.setItem(EMAIL_STORE_KEY, em); } catch (e) {}
       }
+
+      /* ---------- 使用カレンダーの保存 ----------
+         一度選ばれた（または自動検出された）カレンダーのIDを端末に保存し、
+         次回以降はそのカレンダーを自動で使う（選択シートを再表示しない） */
+      const CALENDAR_STORE_KEY = "fc.calendar.id";
+      function storedCalendarId() {
+        try { return localStorage.getItem(CALENDAR_STORE_KEY) || ""; } catch (e) { return ""; }
+      }
+      function storeCalendarId(id) {
+        try { if (id) localStorage.setItem(CALENDAR_STORE_KEY, id); } catch (e) {}
+      }
       async function captureEmail() {
         if (storedEmail() || !state.accessToken) return;
         try {
@@ -1196,6 +1208,32 @@
         return res.json();
       }
 
+      /* APIの生の英語エラーをユーザーに見せないための変換。
+         既知のパターンは具体的な日本語に、それ以外も汎用の日本語文言に落とす */
+      function friendlyErrorMessage(err) {
+        const raw = (err && err.message) || "";
+        if (raw.indexOf("編集・削除できない") >= 0) return raw;
+        if (/birthday|event type|not valid for this event/i.test(raw)) {
+          return "この予定は編集・削除できない種類の予定です";
+        }
+        if (/サインイン|unauthorized|\b401\b/i.test(raw)) {
+          return "サインインの有効期限が切れています。再度サインインしてください";
+        }
+        if (/\b403\b|forbidden|permission/i.test(raw)) {
+          return "この予定を変更する権限がありません";
+        }
+        if (/\b404\b|not found/i.test(raw)) {
+          return "予定が見つかりませんでした。すでに削除されている可能性があります";
+        }
+        if (/\b429\b|rate|quota/i.test(raw)) {
+          return "アクセスが集中しています。少し時間をおいてもう一度お試しください";
+        }
+        if (/failed to fetch|network|load failed/i.test(raw)) {
+          return "通信に失敗しました。ネットワークの状態を確認してもう一度お試しください";
+        }
+        return "時間をおいてもう一度お試しください";
+      }
+
       function isHolidayCalendarEntry(c) {
         if (!c) return false;
         const id = String(c.id || "").toLowerCase();
@@ -1218,14 +1256,24 @@
         state.calendarList = list;
         state.holidayCalendarId = findHolidayCalendarId(list);
         const norm = function (s) { return String(s || "").replace(/\s+/g, ""); };
-        // 1) 一覧からファミリーカレンダーを探す（正式名／太田FAM表記の両方に対応）
+        // 0) 前回この端末で選んだカレンダーが保存されていれば、それをそのまま使う
+        const savedId = storedCalendarId();
+        if (savedId) {
+          const saved = list.find(function (c) {
+            return c.id === savedId && !isHolidayCalendarEntry(c);
+          });
+          if (saved) { setCalendar(saved.id, saved.summary); return; }
+        }
+        // 1) 一覧からファミリーカレンダーを探す。
+        //    正式名の完全一致を最優先し、次に名前に「ファミリー」または「FAM」を
+        //    含むカレンダーを家族カレンダーとして自動選択する
         let found = list.find(function (c) {
           return !isHolidayCalendarEntry(c) && norm(c.summary) === norm(TARGET_CALENDAR_NAME);
         });
         if (!found) {
           found = list.find(function (c) {
             const n = norm(c.summary);
-            return !isHolidayCalendarEntry(c) && (n.indexOf("太田FAM") >= 0 || n.indexOf("FAM") >= 0);
+            return !isHolidayCalendarEntry(c) && (n.indexOf("ファミリー") >= 0 || n.toUpperCase().indexOf("FAM") >= 0);
           });
         }
         if (found) { setCalendar(found.id, found.summary); return; }
@@ -1242,6 +1290,7 @@
       function setCalendar(id, name) {
         state.calendarId = id;
         state.calendarName = name || "";
+        storeCalendarId(id);
         if (!state.holidayCalendarId) state.holidayCalendarId = HOLIDAY_CALENDAR_ID;
         el("calNameLabel").textContent = (state.calendarName || "カレンダー") + "＋祝日";
         loadEvents();
@@ -1258,6 +1307,10 @@
           htmlLink: item.htmlLink || null,
           calendarId: sourceCalendarId || null,
           isHoliday: !!isHoliday,
+          eventType: item.eventType || "default",
+          /* birthday など default 以外の特殊な予定は、Google Calendar API から
+             変更・削除できない。詳細画面で読み取り専用として扱う */
+          readOnly: !!(item.eventType && item.eventType !== "default"),
           allDay: false,
           startDate: null, endDate: null,     // 表示上の開始日・終了日（両端含む）
           startDT: null, endDT: null
@@ -1321,7 +1374,7 @@
           renderCalendar();
         } catch (e) {
           console.error(e);
-          toast("予定の取得に失敗しました：" + e.message);
+          toast("予定の取得に失敗しました：" + friendlyErrorMessage(e));
           renderCalendar();
         } finally { setLoading(false); }
       }
@@ -1353,6 +1406,9 @@
         }
         const resource = buildEventResource(form);
         const existingEv = existingId ? findEvent(existingId) : null;
+        if (existingEv && (existingEv.readOnly || existingEv.isHoliday)) {
+          throw new Error("この予定は編集・削除できない種類の予定です");
+        }
         const targetCalId = (existingEv && existingEv.calendarId) || state.calendarId;
         setLoading(true);
         try {
@@ -1376,6 +1432,9 @@
           return;
         }
         const targetEv = findEvent(id);
+        if (targetEv && (targetEv.readOnly || targetEv.isHoliday)) {
+          throw new Error("この予定は編集・削除できない種類の予定です");
+        }
         const targetCalId2 = (targetEv && targetEv.calendarId) || state.calendarId;
         setLoading(true);
         try {
@@ -1776,20 +1835,29 @@
         } else {
           when = fmtDayLabel(ev.startDate) + " " + fmtTime(ev.startDT) + " 〜<br>" + fmtDayLabel(ev.endDate) + " " + fmtTime(ev.endDT);
         }
+        /* 祝日と、birthday など API から変更・削除できない特殊な予定は読み取り専用。
+           編集・削除ボタンは出さず、その理由だけを短く伝える */
+        const readOnly = ev.isHoliday || !!ev.readOnly;
+        const readOnlyNote = ev.isHoliday
+          ? "祝日は自動で表示されるため、編集・削除はできません"
+          : (ev.eventType === "birthday"
+            ? "誕生日の予定は自動で表示されるため、このアプリでは編集・削除できません"
+            : "この予定は自動で表示される種類のため、このアプリでは編集・削除できません");
         openSheet(
           '<div class="detail-title">' + esc(ev.title) + "</div>"
           + '<span class="detail-chip" style="background:' + member.chipBg + ';color:' + member.onChip + '">' + esc(member.name) + "</span>"
           + '<div class="detail-row"><span class="dr-name">日時</span><span>' + when + "</span></div>"
           + (ev.memo ? '<div class="detail-row"><span class="dr-name">メモ</span><span style="white-space:pre-wrap">' + esc(ev.memo) + "</span></div>" : "")
           + (ev.htmlLink ? '<a class="sheet-link" href="' + esc(ev.htmlLink) + '" target="_blank" rel="noopener">Googleカレンダーで開く</a>' : "")
+          + (readOnly ? '<p class="detail-note">' + esc(readOnlyNote) + "</p>" : "")
           + '<div class="sheet-actions">'
           + '<button type="button" class="btn btn-ghost" id="detailCloseBtn">閉じる</button>'
-          + (ev.isHoliday ? "" : '<button type="button" class="btn btn-danger" id="detailDeleteBtn">削除</button>'
+          + (readOnly ? "" : '<button type="button" class="btn btn-danger" id="detailDeleteBtn">削除</button>'
           + '<button type="button" class="btn btn-primary" id="detailEditBtn">編集</button>')
           + "</div>"
         );
         el("detailCloseBtn").addEventListener("click", closeSheet);
-        if (ev.isHoliday) return;
+        if (readOnly) return;
         el("detailEditBtn").addEventListener("click", function () { openEventForm(ev); });
         const delBtn = el("detailDeleteBtn");
         delBtn.addEventListener("click", async function () {
@@ -1800,7 +1868,7 @@
           }
           delBtn.disabled = true;
           try { await deleteEvent(ev.id); closeSheet(); }
-          catch (e) { toast("削除に失敗しました：" + e.message); delBtn.disabled = false; }
+          catch (e) { toast("削除に失敗しました：" + friendlyErrorMessage(e)); delBtn.disabled = false; }
         });
       }
 
@@ -1963,7 +2031,7 @@
             renderCalendar();
             closeSheet();
           } catch (err) {
-            fail("保存に失敗しました：" + err.message);
+            fail("保存に失敗しました：" + friendlyErrorMessage(err));
             saveBtn.disabled = false; saveBtn.textContent = isEdit ? "保存" : "追加";
           }
         });
@@ -2021,7 +2089,7 @@
           return '<button type="button" class="picker-item" data-cal="' + esc(c.id) + '" data-name="' + esc(c.summary || "") + '">'
             + '<span class="p-name">' + esc(c.summary || "(名称なし)") + '</span><span class="p-role">' + role + "</span></button>";
         }).join("");
-        openSheet("<h2>カレンダーを選ぶ</h2><p style='color:var(--ink-2);font-size:0.88rem;line-height:1.6'>「" + esc(TARGET_CALENDAR_NAME) + "」が自動で見つからなかったため、使用するカレンダーを選んでください。</p>" + items);
+        openSheet("<h2>カレンダーを選ぶ</h2><p style='color:var(--ink-2);font-size:0.88rem;line-height:1.6'>使うカレンダーを選んでください。</p>" + items);
         document.querySelectorAll("[data-cal]").forEach(function (btn) {
           btn.addEventListener("click", function () {
             setCalendar(btn.getAttribute("data-cal"), btn.getAttribute("data-name"));
