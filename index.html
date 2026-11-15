@@ -719,6 +719,36 @@
         .mp-cell small { color: #ff8a7a; }
         .mp-cell.current small { color: #ffd9d3; }
       }
+
+      /* ---------- 月ジャンプカード: 横スワイプで年の移動 ----------
+         年表示＋月グリッド全体をスワイプ領域にし、左右スワイプで
+         年を切り替える。切替時はスワイプ方向からカードが流れ込む */
+      .mp-swipe { touch-action: pan-y; }
+      @keyframes mp-in-l { from { transform: translateX(30px); opacity: 0.3; } to { transform: none; opacity: 1; } }
+      @keyframes mp-in-r { from { transform: translateX(-30px); opacity: 0.3; } to { transform: none; opacity: 1; } }
+      .mp-anim-l { animation: mp-in-l 0.18s ease; }
+      .mp-anim-r { animation: mp-in-r 0.18s ease; }
+      @media (prefers-reduced-motion: reduce) { .mp-anim-l, .mp-anim-r { animation: none; } }
+      .mp-hint { font-size: 0.74rem; font-weight: 700; color: var(--ink-3); text-align: center; margin: 10px 0 0; }
+
+      /* ---------- 1日の予定カード: 左スワイプで削除ボタンを表示 ----------
+         カードを左へスワイプすると右端に削除ボタンが現れる（iOSメール式）。
+         読み取り専用（祝日・誕生日など）の予定には削除ボタンを付けない */
+      .day-event-wrap { position: relative; overflow: hidden; border-radius: 12px; margin-bottom: 8px; }
+      .day-event-wrap .day-event { margin-bottom: 0; }
+      .day-event-swipe {
+        position: relative; z-index: 1; touch-action: pan-y;
+        transition: transform 0.18s ease; will-change: transform;
+      }
+      .day-event-del {
+        position: absolute; top: 0; right: 0; bottom: 0; width: 84px; z-index: 0;
+        background: #c62f22; color: #ffffff; font-weight: 900; font-size: 0.9rem;
+        display: flex; align-items: center; justify-content: center; text-align: center;
+        padding: 0 6px; line-height: 1.35;
+      }
+      .day-event-del.armed { background: #9c1f14; }
+      .day-event-del:disabled { opacity: 0.6; }
+      @media (prefers-reduced-motion: reduce) { .day-event-swipe { transition: none; } }
     </style>
   </head>
   <body>
@@ -1329,6 +1359,10 @@
           let endD = new Date(ev.endDT);
           if (endD.getHours() === 0 && endD.getMinutes() === 0 && endD > ev.startDT) endD = addDays(endD, -1);
           ev.endDate = dateKey(endD);
+          /* 編集フォーム用の終了日は「実際の終了日時の日付」を別に保持する。
+             深夜0時に終わる予定は表示用 endDate が前日に寄るため、そのまま
+             フォームへ渡すと終了が開始より前になり保存できなくなる */
+          ev.formEndDate = dateKey(ev.endDT);
         }
         return ev;
       }
@@ -1393,6 +1427,36 @@
         return res;
       }
 
+      /* 予定の更新は「最新の予定を取得→フォーム項目だけ差し替えて PUT で
+         丸ごと更新」を本線にする。従来の PATCH（部分更新）だけでは、
+         繰り返し予定の単発回や、サーバー側に項目が増えた予定で更新が
+         弾かれて「作成はできるのに編集だけできない」状態になるため。
+         PUT が失敗した場合は PATCH に切り替えて再試行する */
+      async function updateEventOnServer(calId, eventId, formResource) {
+        const path = "/calendars/" + encodeURIComponent(calId) + "/events/" + encodeURIComponent(eventId);
+        let fresh = null;
+        try { fresh = await api(path); } catch (e) { fresh = null; }
+        if (fresh && !fresh.recurringEventId) {
+          const body = {};
+          Object.keys(fresh).forEach(function (k) { body[k] = fresh[k]; });
+          /* サーバー管理の読み取り専用項目は PUT に含めるとエラーになるため除く */
+          ["id", "etag", "iCalUID", "created", "updated", "htmlLink", "creator",
+           "organizer", "kind", "status", "hangoutLink", "conferenceData",
+           "eventType", "recurringEventId", "originalStart"].forEach(function (k) { delete body[k]; });
+          body.summary = formResource.summary;
+          body.description = formResource.description;
+          body.colorId = formResource.colorId;
+          body.start = formResource.start;
+          body.end = formResource.end;
+          try {
+            await api(path, { method: "PUT", body: JSON.stringify(body) });
+            return;
+          } catch (e) { console.warn("PUT update failed, falling back to PATCH", e); }
+        }
+        /* 繰り返し予定の単発回は、その回のIDへ PATCH するのが正規の更新方法 */
+        await api(path, { method: "PATCH", body: JSON.stringify(formResource) });
+      }
+
       async function saveEvent(form, existingId) {
         if (state.preview) {
           if (existingId) {
@@ -1413,8 +1477,7 @@
         setLoading(true);
         try {
           if (existingId) {
-            await api("/calendars/" + encodeURIComponent(targetCalId) + "/events/" + encodeURIComponent(existingId),
-              { method: "PATCH", body: JSON.stringify(resource) });
+            await updateEventOnServer(targetCalId, existingId, resource);
             toast("予定を更新しました");
           } else {
             await api("/calendars/" + encodeURIComponent(state.calendarId) + "/events",
@@ -1450,7 +1513,7 @@
           id: id, title: form.title, memo: form.memo || "",
           colorId: (MEMBERS[form.member] || MEMBERS.c).colorId,
           htmlLink: null, allDay: form.allDay,
-          startDate: form.startDate, endDate: form.endDate, startDT: null, endDT: null
+          startDate: form.startDate, endDate: form.endDate, formEndDate: form.endDate, startDT: null, endDT: null
         };
         if (!form.allDay) {
           ev.startDT = new Date(form.startDate + "T" + form.startTime + ":00");
@@ -1799,11 +1862,18 @@
             if (ev.endDate !== ev.startDate) meta = fmtDayLabel(ev.startDate) + " " + meta + "（〜" + fmtDayLabel(ev.endDate) + "）";
           }
           meta += " ・ " + member.name;
-          return '<button type="button" class="day-event" data-event="' + esc(ev.id) + '">'
-            + '<span class="stripe" style="background:' + member.color + '"></span>'
+          const cardInner = '<span class="stripe" style="background:' + member.color + '"></span>'
             + '<span class="ev-main"><span class="ev-title">' + esc(ev.title) + "</span>"
-            + '<span class="ev-meta" style="display:block">' + esc(meta) + "</span></span>"
-            + "</button>";
+            + '<span class="ev-meta" style="display:block">' + esc(meta) + "</span></span>";
+          /* 祝日・誕生日など読み取り専用の予定はスワイプ削除の対象外（通常カードのまま） */
+          if (ev.isHoliday || ev.readOnly) {
+            return '<button type="button" class="day-event" data-event="' + esc(ev.id) + '">' + cardInner + "</button>";
+          }
+          /* 編集できる予定はラッパーで包み、左スワイプで右端に削除ボタンを出す */
+          return '<div class="day-event-wrap">'
+            + '<button type="button" class="day-event-del" data-del="' + esc(ev.id) + '" aria-label="' + esc(ev.title) + 'を削除">削除</button>'
+            + '<button type="button" class="day-event day-event-swipe" data-event="' + esc(ev.id) + '">' + cardInner + "</button>"
+            + "</div>";
         }).join("");
       }
 
@@ -1884,7 +1954,7 @@
         const defEnd = new Date(defStart.getTime() + 60 * 60 * 1000);
         const startTime = isEdit && base.startDT ? fmtTime(base.startDT) : fmtTime(defStart);
         const endTime = isEdit && base.endDT ? fmtTime(base.endDT) : fmtTime(defEnd);
-        const endDate = isEdit ? base.endDate : startDate;
+        const endDate = isEdit ? (!base.allDay && base.formEndDate ? base.formEndDate : base.endDate) : startDate;
         const currentMember = isEdit ? memberOf(base) : "c";
 
         const memberChips = MEMBER_ORDER.map(function (k) {
@@ -2042,8 +2112,9 @@
          年は ‹ › で切り替え、月をタップするとその月へ直接移動する */
       function openMonthPicker() {
         let py = state.viewYear;
+        let mpSuppressUntil = 0;
         const now = new Date();
-        function renderPicker() {
+        function renderPicker(animDir) {
           let cells = "";
           for (let m = 0; m < 12; m++) {
             const isCurrent = py === state.viewYear && m === state.viewMonth;
@@ -2055,23 +2126,49 @@
           }
           openSheet(
             "<h2>月を選ぶ</h2>"
+            + '<div class="mp-swipe" id="mpSwipeArea">'
             + '<div class="mp-year-row">'
             + '<button type="button" class="mp-year-btn" id="mpPrevYear" aria-label="前の年">‹</button>'
             + '<span class="mp-year">' + py + "年</span>"
             + '<button type="button" class="mp-year-btn" id="mpNextYear" aria-label="次の年">›</button>'
             + "</div>"
-            + '<div class="mp-grid">' + cells + "</div>"
+            + '<div class="mp-grid' + (animDir === "l" ? " mp-anim-l" : (animDir === "r" ? " mp-anim-r" : "")) + '">' + cells + "</div>"
+            + '<p class="mp-hint">左右にスワイプすると年が切り替わります</p>'
+            + "</div>"
             + '<div class="sheet-actions">'
             + '<button type="button" class="btn btn-ghost" id="mpCloseBtn">閉じる</button>'
             + '<button type="button" class="btn btn-primary" id="mpTodayBtn">今月へ戻る</button>'
             + "</div>"
           );
-          el("mpPrevYear").addEventListener("click", function () { py--; renderPicker(); });
-          el("mpNextYear").addEventListener("click", function () { py++; renderPicker(); });
+          el("mpPrevYear").addEventListener("click", function () { if (Date.now() < mpSuppressUntil) return; py--; renderPicker("r"); });
+          el("mpNextYear").addEventListener("click", function () { if (Date.now() < mpSuppressUntil) return; py++; renderPicker("l"); });
+          /* 年表示＋月グリッドを左右スワイプすると年が切り替わる。
+             タップ（移動量が小さい操作）は月ボタンのクリックとして通常どおり動く */
+          const mpArea = el("mpSwipeArea");
+          if (mpArea) {
+            let mpSX = 0, mpSY = 0, mpTracking = false;
+            mpArea.addEventListener("pointerdown", function (e) {
+              mpSX = e.clientX; mpSY = e.clientY; mpTracking = true;
+            });
+            mpArea.addEventListener("pointerup", function (e) {
+              if (!mpTracking) return;
+              mpTracking = false;
+              const mdx = e.clientX - mpSX, mdy = e.clientY - mpSY;
+              if (Math.abs(mdx) > 44 && Math.abs(mdx) > Math.abs(mdy) * 1.3) {
+                /* スワイプ直後のクリック（指を離した位置の月や年ボタンへの
+                   誤反応）を抑止してから年を切り替える */
+                mpSuppressUntil = Date.now() + 350;
+                if (mdx < 0) { py++; renderPicker("l"); }
+                else { py--; renderPicker("r"); }
+              }
+            });
+            mpArea.addEventListener("pointercancel", function () { mpTracking = false; });
+          }
           el("mpCloseBtn").addEventListener("click", closeSheet);
           el("mpTodayBtn").addEventListener("click", function () { closeSheet(); goToday(); });
           document.querySelectorAll("[data-mp-month]").forEach(function (btn) {
             btn.addEventListener("click", function () {
+              if (Date.now() < mpSuppressUntil) return;
               state.viewYear = py;
               state.viewMonth = parseInt(btn.getAttribute("data-mp-month"), 10);
               closeSheet();
@@ -2291,9 +2388,100 @@
           const cell = e.target.closest("[data-day]");
           if (cell) selectDay(cell.getAttribute("data-day"), false);
         });
-        el("dayEventList").addEventListener("click", function (e) {
+        /* 1日の予定リスト: 左スワイプで削除ボタンを表示する。
+           開いているカードは1枚だけにし、スワイプ直後のクリックで
+           詳細が誤って開かないよう短時間クリックを抑止する */
+        const dayListEl = el("dayEventList");
+        let openSwipeCard = null;
+        let swipeSuppressUntil = 0;
+        function closeSwipeCard(card) {
+          if (card) card.style.transform = "";
+          if (openSwipeCard === card) openSwipeCard = null;
+        }
+        dayListEl.addEventListener("click", async function (e) {
+          if (Date.now() < swipeSuppressUntil) return;
+          const delBtn = e.target.closest("[data-del]");
+          if (delBtn) {
+            /* 誤削除防止に2段階: 1回目で「本当に削除」に変わり、2回目で実行 */
+            if (!delBtn.classList.contains("armed")) {
+              delBtn.classList.add("armed");
+              delBtn.textContent = "本当に削除";
+              return;
+            }
+            const delId = delBtn.getAttribute("data-del");
+            delBtn.disabled = true;
+            try {
+              await deleteEvent(delId);
+              openSwipeCard = null;
+            } catch (err) {
+              toast("削除に失敗しました：" + friendlyErrorMessage(err));
+              delBtn.disabled = false;
+              delBtn.classList.remove("armed");
+              delBtn.textContent = "削除";
+            }
+            return;
+          }
           const item = e.target.closest("[data-event]");
-          if (item) openEventDetail(item.getAttribute("data-event"));
+          if (!item) return;
+          /* 削除ボタンが出ているカードをタップしたら、詳細を開かず閉じるだけにする */
+          if (item.classList.contains("day-event-swipe") && item === openSwipeCard) {
+            closeSwipeCard(item);
+            return;
+          }
+          if (openSwipeCard && openSwipeCard !== item) closeSwipeCard(openSwipeCard);
+          openEventDetail(item.getAttribute("data-event"));
+        });
+        let swipeGesture = null;
+        dayListEl.addEventListener("pointerdown", function (e) {
+          const card = e.target.closest(".day-event-swipe");
+          if (!card) {
+            if (openSwipeCard && !e.target.closest("[data-del]")) closeSwipeCard(openSwipeCard);
+            return;
+          }
+          swipeGesture = { card: card, x0: e.clientX, y0: e.clientY, dx: 0, active: false, wasOpen: card === openSwipeCard };
+        });
+        dayListEl.addEventListener("pointermove", function (e) {
+          if (!swipeGesture) return;
+          const gdx = e.clientX - swipeGesture.x0;
+          const gdy = e.clientY - swipeGesture.y0;
+          if (!swipeGesture.active) {
+            if (Math.abs(gdx) > 8 && Math.abs(gdx) > Math.abs(gdy) * 1.2) swipeGesture.active = true;
+            else if (Math.abs(gdy) > 8) { swipeGesture = null; return; }
+          }
+          if (swipeGesture.active) {
+            swipeGesture.dx = gdx;
+            const baseTx = swipeGesture.wasOpen ? -84 : 0;
+            let tx = baseTx + gdx;
+            if (tx > 0) tx = 0;
+            if (tx < -84) tx = -84;
+            swipeGesture.card.style.transition = "none";
+            swipeGesture.card.style.transform = "translateX(" + tx + "px)";
+          }
+        });
+        function finishSwipeGesture() {
+          if (!swipeGesture) return;
+          const g = swipeGesture;
+          swipeGesture = null;
+          if (!g.active) return;
+          swipeSuppressUntil = Date.now() + 300;
+          g.card.style.transition = "";
+          const tx = (g.wasOpen ? -84 : 0) + g.dx;
+          if (tx < -42) {
+            if (openSwipeCard && openSwipeCard !== g.card) closeSwipeCard(openSwipeCard);
+            g.card.style.transform = "translateX(-84px)";
+            openSwipeCard = g.card;
+          } else {
+            g.card.style.transform = "";
+            if (openSwipeCard === g.card) openSwipeCard = null;
+          }
+        }
+        dayListEl.addEventListener("pointerup", finishSwipeGesture);
+        dayListEl.addEventListener("pointercancel", function () {
+          if (swipeGesture && swipeGesture.active) {
+            swipeGesture.card.style.transition = "";
+            swipeGesture.card.style.transform = swipeGesture.wasOpen ? "translateX(-84px)" : "";
+          }
+          swipeGesture = null;
         });
 
         window.addEventListener("beforeinstallprompt", function (e) {
