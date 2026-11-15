@@ -972,6 +972,22 @@
       .check-circle { position: relative; }
       .check-circle::after { content: ""; position: absolute; inset: -8px; }
       .rxn-btn { min-height: 2.25rem !important; }
+
+      /* ---------- プッシュ通知設定（まとめ画面） ---------- */
+      .push-card h3 { font-size: 0.98rem; font-weight: 900; margin: 0 0 6px; }
+      .push-note { color: var(--ink-2); font-size: 0.85rem; }
+      .push-member-row { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; margin: 12px 0 4px; }
+      .push-member-label { font-size: 0.85rem; font-weight: 900; color: var(--ink-2); padding-top: 10px; }
+      .push-card .album-open-btn { margin-top: 12px; }
+      .push-card .album-open-btn:disabled { opacity: 0.55; }
+      .push-test-btn {
+        display: flex; align-items: center; justify-content: center; width: 100%;
+        margin-top: 8px; min-height: 2.9rem; padding: 11px 18px;
+        background: var(--surface-2); color: var(--ink);
+        border: 1.5px solid var(--line); border-radius: 12px;
+        font-weight: 800; font-size: 0.9rem; cursor: pointer;
+      }
+      .push-test-btn:disabled { opacity: 0.55; }
     </style>
   </head>
   <body>
@@ -1100,6 +1116,18 @@
           <button type="button" class="hub-refresh" data-refresh aria-label="最新の状態に更新" title="最新の状態に更新">↻</button>
         </div>
         <p class="hub-sync"><span class="sync-dot"></span><span data-sync-label>家族で共有中</span></p>
+        <div class="sum-card push-card" id="pushCard">
+          <h3>プッシュ通知</h3>
+          <p class="sum-line" id="pushStatus">状態を確認しています…</p>
+          <p class="sum-line push-note">家族の予定やToDo、成長記録、買い物リストなどが追加・変更されたときに、この端末へ通知します。自分の操作では自分の端末に通知は届きません。通知を受け取るには、端末ごとにONにしてください。</p>
+          <div class="push-member-row">
+            <span class="push-member-label">わたしは</span>
+            <div class="member-picker" id="pushMemberPicker"></div>
+          </div>
+          <button type="button" class="album-open-btn" id="pushToggleBtn">通知をONにする</button>
+          <button type="button" class="push-test-btn" id="pushTestBtn" disabled>テスト通知を送る</button>
+          <p class="sum-line push-note">ONにしたあと「テスト通知を送る」を押すと、届くかどうかをこの端末で確認できます（テスト通知は家族全員の端末に届きます）。</p>
+        </div>
         <div id="summaryBody"></div>
       </section>
 
@@ -1246,7 +1274,7 @@
             changed = applyEventLabels(entry);
           } catch (e) { console.warn("calendarList.get for labels failed", e); }
         }
-        if (changed) { renderCalendar(); }
+        if (changed) { renderCalendar(); try { refreshPushUI(); } catch (e) {} }
       }
 
       /* ---------------- 状態 ---------------- */
@@ -1794,6 +1822,7 @@
               { method: "POST", body: JSON.stringify(resource) });
             toast("予定を追加しました");
           }
+          sendPushNotify(existingId ? "予定が更新されました" : "予定が追加されました", form.title);
           await loadEvents();
         } finally { setLoading(false); }
       }
@@ -1814,6 +1843,7 @@
           await api("/calendars/" + encodeURIComponent(targetCalId2) + "/events/" + encodeURIComponent(id),
             { method: "DELETE" });
           toast("予定を削除しました");
+          sendPushNotify("予定が削除されました", targetEv ? targetEv.title : "");
           await loadEvents();
         } finally { setLoading(false); }
       }
@@ -2662,6 +2692,243 @@
         try { switchTab("calendar"); } catch (e) {}
       }
 
+      /* =====================================================
+         プッシュ通知（Cloudflare Worker 連携）
+         -----------------------------------------------------
+         通知サーバー（Worker）が購読情報を保管し、家族データの
+         変更時に /notify で全端末へ配信する。購読は端末ごと。
+         「わたしは」で選んだ担当が、この端末の持ち主として
+         サーバーに登録され、自分の操作では自分に通知が届かない
+         （/notify の excludeMember に同じ表示名を渡す）。
+         Service Worker（sw.js）は index.html と同じ場所に置く。
+         通知まわりの失敗は、予定や記録の保存を失敗扱いにしない
+         よう、すべて握りつぶす（fire-and-forget）。
+         /notify の認可は、購読時にサーバーが発行する端末ごとの
+         トークン（この端末の localStorage にのみ保存）で行う。
+         共通キーのような秘密情報はページ内に一切含めない。
+         ===================================================== */
+      const PUSH_SERVER = "https://family-push.torotorototor0228.workers.dev";
+      const PUSH_VAPID_PUBLIC_KEY = "BCXbO8oHoLITrtkCfJE_yfupuSV_fAQuOZYQvSBsdthKBa0RWbpEKzdzGUasV0KUQAhnt-VHcLqxEVcw-IbdU8g";
+      const PUSH_MEMBER_STORE_KEY = "fc.push.member";
+      const PUSH_TOKEN_STORE_KEY = "fhPushToken";
+      let pushRegPromise = null;
+
+      function pushSupported() {
+        return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+      }
+      function pushMemberKey() {
+        try {
+          const k = localStorage.getItem(PUSH_MEMBER_STORE_KEY);
+          if (k && MEMBERS[k]) return k;
+        } catch (e) {}
+        return "c";
+      }
+      function pushMemberName() {
+        const m = MEMBERS[pushMemberKey()];
+        return m ? m.name : "";
+      }
+      /* 購読時にサーバーが発行した端末トークンの読み書き。
+         空文字を渡すと削除する（通知OFF時） */
+      function pushDeviceToken() {
+        try { return localStorage.getItem(PUSH_TOKEN_STORE_KEY) || ""; } catch (e) { return ""; }
+      }
+      function storePushToken(token) {
+        try {
+          if (token) localStorage.setItem(PUSH_TOKEN_STORE_KEY, token);
+          else localStorage.removeItem(PUSH_TOKEN_STORE_KEY);
+        } catch (e) {}
+      }
+      function urlBase64ToUint8Array(base64String) {
+        const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+        const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+        const raw = window.atob(base64);
+        const arr = new Uint8Array(raw.length);
+        for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+        return arr;
+      }
+      function pushRegistration() {
+        if (!pushRegPromise) {
+          pushRegPromise = navigator.serviceWorker.register("sw.js").catch(function (e) {
+            pushRegPromise = null;
+            throw e;
+          });
+        }
+        return pushRegPromise;
+      }
+      async function pushGetSubscription() {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (!reg) return null;
+        return reg.pushManager.getSubscription();
+      }
+      async function pushPost(path, payload) {
+        const res = await fetch(PUSH_SERVER + path, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error("push server error " + res.status);
+        try { return await res.json(); } catch (e) { return null; }
+      }
+      /* 家族への変更通知。失敗しても呼び出し元の保存処理には影響させない。
+         端末トークンが保存されていない端末からは送信しない */
+      function sendPushNotify(title, body) {
+        if (state.preview) return;
+        const token = pushDeviceToken();
+        if (!token) return;
+        try {
+          fetch(PUSH_SERVER + "/notify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              token: token,
+              title: title,
+              body: body || "",
+              excludeMember: pushMemberName()
+            })
+          }).catch(function () {});
+        } catch (e) { /* 通知の失敗は握りつぶす */ }
+      }
+      function renderPushMemberPicker() {
+        const wrap = el("pushMemberPicker");
+        if (!wrap) return;
+        const cur = pushMemberKey();
+        wrap.innerHTML = MEMBER_ORDER.map(function (k) {
+          const mb = MEMBERS[k];
+          const sel = k === cur;
+          return '<button type="button" class="member-pick" data-pick="' + k + '" data-push-member="' + k + '" aria-pressed="' + sel + '">'
+            + '<i style="background:' + mb.color + '"></i>' + esc(mb.name) + "</button>";
+        }).join("");
+      }
+      async function refreshPushUI() {
+        const statusEl = el("pushStatus");
+        const btn = el("pushToggleBtn");
+        const testBtn = el("pushTestBtn");
+        if (!statusEl || !btn) return;
+        renderPushMemberPicker();
+        if (!pushSupported()) {
+          statusEl.textContent = "この端末・ブラウザではプッシュ通知に対応していません。iPhoneでは、ホーム画面に追加したアプリとして開くと使えます。";
+          btn.disabled = true;
+          btn.textContent = "通知をONにする";
+          if (testBtn) testBtn.disabled = true;
+          return;
+        }
+        btn.disabled = false;
+        let sub = null;
+        try { sub = await pushGetSubscription(); } catch (e) {}
+        if (Notification.permission === "denied") {
+          statusEl.textContent = "状態：OFF（通知がブロックされています。端末の設定でこのアプリの通知を許可してください）";
+          btn.textContent = "通知をONにする";
+          if (testBtn) testBtn.disabled = true;
+          return;
+        }
+        if (sub) {
+          statusEl.textContent = "状態：ON（「" + pushMemberName() + "」として、この端末で通知を受け取ります）";
+          btn.textContent = "通知をOFFにする";
+          if (testBtn) testBtn.disabled = false;
+          /* 購読済みでも端末トークンが無い端末（旧方式でONにした等）は、
+             購読を再送してトークンを取り直す */
+          if (!pushDeviceToken()) {
+            pushPost("/subscribe", { subscription: sub.toJSON(), member: pushMemberName() })
+              .then(function (data) { if (data && data.token) storePushToken(data.token); })
+              .catch(function () {});
+          }
+        } else {
+          statusEl.textContent = "状態：OFF（家族の変更はこの端末に通知されません）";
+          btn.textContent = "通知をONにする";
+          if (testBtn) testBtn.disabled = true;
+        }
+      }
+      /* テスト通知：自分を除外せず全端末へ送り、この端末に届くか確認する */
+      async function sendTestPush() {
+        if (state.preview) { toast("プレビューではテスト通知を送れません"); return; }
+        if (!pushSupported()) { toast("この端末・ブラウザではプッシュ通知に対応していません"); return; }
+        const btn = el("pushTestBtn");
+        let sub = null;
+        try { sub = await pushGetSubscription(); } catch (e) {}
+        if (!sub) { toast("まず「通知をONにする」で通知を有効にしてください"); return; }
+        const token = pushDeviceToken();
+        if (!token) { toast("通知を一度OFFにして、ONにし直してください"); return; }
+        try {
+          if (btn) { btn.disabled = true; btn.textContent = "送信中…"; }
+          const res = await fetch(PUSH_SERVER + "/notify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              token: token,
+              title: "テスト通知",
+              body: "プッシュ通知が届きました。設定は完了です。",
+              excludeMember: ""
+            })
+          });
+          if (!res.ok) throw new Error("push server error " + res.status);
+          const data = await res.json().catch(function () { return null; });
+          if (data && typeof data.sent === "number") {
+            if (data.sent > 0) toast("テスト通知を " + data.sent + " 台の端末に送りました");
+            else toast("送信できた端末がありませんでした");
+          } else {
+            toast("テスト通知を送りました");
+          }
+        } catch (e) {
+          console.warn("push test failed", e);
+          toast("テスト通知の送信に失敗しました。時間をおいてもう一度お試しください");
+        } finally {
+          if (btn) { btn.disabled = false; btn.textContent = "テスト通知を送る"; }
+        }
+      }
+      async function enablePush() {
+        if (state.preview) { toast("プレビューでは通知を有効にできません"); return; }
+        if (!pushSupported()) { toast("この端末・ブラウザではプッシュ通知に対応していません"); return; }
+        const btn = el("pushToggleBtn");
+        try {
+          if (btn) { btn.disabled = true; btn.textContent = "設定中…"; }
+          const perm = await Notification.requestPermission();
+          if (perm !== "granted") {
+            toast("通知が許可されませんでした。端末の設定を確認してください");
+            return;
+          }
+          const reg = await pushRegistration();
+          let sub = await reg.pushManager.getSubscription();
+          if (!sub) {
+            sub = await reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(PUSH_VAPID_PUBLIC_KEY)
+            });
+          }
+          const subData = await pushPost("/subscribe", { subscription: sub.toJSON(), member: pushMemberName() });
+          if (subData && subData.token) storePushToken(subData.token);
+          toast("プッシュ通知をONにしました");
+        } catch (e) {
+          console.warn("push enable failed", e);
+          toast("プッシュ通知の設定に失敗しました。時間をおいてもう一度お試しください");
+        } finally {
+          if (btn) btn.disabled = false;
+          refreshPushUI();
+        }
+      }
+      async function disablePush() {
+        const btn = el("pushToggleBtn");
+        try {
+          if (btn) { btn.disabled = true; btn.textContent = "設定中…"; }
+          let endpoint = "";
+          try {
+            const sub = await pushGetSubscription();
+            if (sub) {
+              endpoint = sub.endpoint;
+              await sub.unsubscribe();
+            }
+          } catch (e) { console.warn("push unsubscribe failed", e); }
+          if (endpoint) {
+            try { await pushPost("/unsubscribe", { endpoint: endpoint }); }
+            catch (e) { console.warn("push unsubscribe post failed", e); }
+          }
+          storePushToken("");
+          toast("プッシュ通知をOFFにしました");
+        } finally {
+          if (btn) btn.disabled = false;
+          refreshPushUI();
+        }
+      }
+
       /* ---------- データ層 ---------- */
       function hubRecordOf(item) {
         const priv = (item.extendedProperties && item.extendedProperties.private) || {};
@@ -2848,12 +3115,16 @@
         const set = reactedSet();
         const key = rec.id + ":" + kind;
         const counts = rxnOf(rec);
+        const added = !set.has(key);
         if (set.has(key)) { set.delete(key); counts[kind] = Math.max(0, (counts[kind] || 0) - 1); }
         else { set.add(key); counts[kind] = (counts[kind] || 0) + 1; }
         saveReactedSet(set);
         rec.props.rxn = JSON.stringify(counts);
         refreshRxnContainers(rec);
-        try { await hubUpdate(rec); }
+        try {
+          await hubUpdate(rec);
+          if (added) sendPushNotify("新しいリアクションがつきました", rec.title || "家族の記録");
+        }
         catch (e) { toast("リアクションに失敗しました：" + friendlyErrorMessage(e)); }
       }
 
@@ -2882,6 +3153,7 @@
         el("viewSummary").hidden = tab !== "summary";
         if (!cal && !HUB.loaded) loadHubData();
         renderHub();
+        if (tab === "summary") refreshPushUI();
         window.scrollTo(0, 0);
       }
       function renderHub() {
@@ -3107,7 +3379,7 @@
               delBtn.classList.add("armed"); delBtn.textContent = "本当に削除する"; return;
             }
             delBtn.disabled = true;
-            try { await hubDelete(rec); closeSheet(); toast("記録を削除しました"); }
+            try { await hubDelete(rec); closeSheet(); toast("記録を削除しました"); sendPushNotify("成長記録が削除されました", rec.title); }
             catch (e) { toast("削除に失敗しました：" + friendlyErrorMessage(e)); delBtn.disabled = false; }
           });
         }
@@ -3132,6 +3404,7 @@
               rec.title = (MEMBERS[pickedChild] || MEMBERS.c).name + "の成長記録";
               await hubUpdate(rec);
               toast("記録を更新しました");
+              sendPushNotify("成長記録が更新されました", rec.title);
             } else {
               await hubCreate({
                 type: "growth", date: date, memo: memo,
@@ -3140,6 +3413,7 @@
               });
               HUB.growthChild = pickedChild;
               toast("記録を追加しました");
+              sendPushNotify("成長記録が追加されました", (MEMBERS[pickedChild] || MEMBERS.c).name + "の成長記録");
             }
             closeSheet();
             renderHub();
@@ -3167,7 +3441,7 @@
       async function toggleTodoDone(rec) {
         if (rec.props.done === "1") {
           rec.props.done = "0";
-          try { await hubUpdate(rec); toast("未完了に戻しました"); }
+          try { await hubUpdate(rec); toast("未完了に戻しました"); sendPushNotify("ToDoが未完了に戻されました", rec.title); }
           catch (e) { toast("更新に失敗しました：" + friendlyErrorMessage(e)); }
           return;
         }
@@ -3181,6 +3455,7 @@
             });
           }
           toast("完了しました");
+          sendPushNotify("ToDoが完了しました", rec.title);
         } catch (e) { toast("更新に失敗しました：" + friendlyErrorMessage(e)); }
       }
       function todoCardHtml(r) {
@@ -3279,7 +3554,7 @@
               delBtn.classList.add("armed"); delBtn.textContent = "本当に削除する"; return;
             }
             delBtn.disabled = true;
-            try { await hubDelete(rec); closeSheet(); toast("ToDoを削除しました"); }
+            try { await hubDelete(rec); closeSheet(); toast("ToDoを削除しました"); sendPushNotify("ToDoが削除されました", rec.title); }
             catch (e) { toast("削除に失敗しました：" + friendlyErrorMessage(e)); delBtn.disabled = false; }
           });
         }
@@ -3300,12 +3575,14 @@
               rec.props.asg = pickedAsg; rec.props.rep = repVal;
               await hubUpdate(rec);
               toast("ToDoを更新しました");
+              sendPushNotify("ToDoが更新されました", title);
             } else {
               await hubCreate({
                 type: "todo", title: title, date: due, memo: "",
                 props: { asg: pickedAsg, done: "0", rep: repVal }
               });
               toast("ToDoを追加しました");
+              sendPushNotify("ToDoが追加されました", title);
             }
             closeSheet();
             renderHub();
@@ -3376,6 +3653,7 @@
             done: false, addedAt: new Date().toISOString(), boughtAt: ""
           });
           hubSaveShop();
+          sendPushNotify("買い物リストに追加しました", name);
         }
         el("shopAddBtn").addEventListener("click", addFromForm);
         el("shopNameInput").addEventListener("keydown", function (e) {
@@ -3394,12 +3672,15 @@
             it.done = !it.done;
             it.boughtAt = it.done ? new Date().toISOString() : "";
             hubSaveShop();
+            if (it.done) sendPushNotify("買い物を購入しました", it.name);
           });
         });
         body.querySelectorAll("[data-shop-del]").forEach(function (btn) {
           btn.addEventListener("click", function () {
+            const delItem = HUB.shopItems.find(function (x) { return x.id === btn.getAttribute("data-shop-del"); });
             HUB.shopItems = HUB.shopItems.filter(function (x) { return x.id !== btn.getAttribute("data-shop-del"); });
             hubSaveShop();
+            if (delItem) sendPushNotify("買い物リストから削除しました", delItem.name);
           });
         });
         const clearBtn = el("shopClearHistory");
@@ -3489,6 +3770,7 @@
           try {
             await hubSaveConfig();
             toast("アルバムのリンクを設定しました");
+            sendPushNotify("アルバムのリンクが設定されました", "Googleフォトの共有アルバム");
             closeSheet();
             renderHub();
           } catch (e) {
@@ -3818,6 +4100,32 @@
         el("growthAddBtn").addEventListener("click", function () { openGrowthForm(null); });
         el("todoAddBtn").addEventListener("click", function () { openTodoForm(null); });
         el("albumLinkBtn").addEventListener("click", function () { openAlbumLinkForm(); });
+        /* プッシュ通知のON/OFFと「わたしは」の選択（まとめ画面の設定カード） */
+        const pushToggleBtn = el("pushToggleBtn");
+        if (pushToggleBtn) pushToggleBtn.addEventListener("click", async function () {
+          let sub = null;
+          try { sub = await pushGetSubscription(); } catch (e) {}
+          if (sub) disablePush(); else enablePush();
+        });
+        const pushTestBtn = el("pushTestBtn");
+        if (pushTestBtn) pushTestBtn.addEventListener("click", function () { sendTestPush(); });
+        const pushPicker = el("pushMemberPicker");
+        if (pushPicker) pushPicker.addEventListener("click", function (e) {
+          const b = e.target.closest("[data-push-member]");
+          if (!b) return;
+          try { localStorage.setItem(PUSH_MEMBER_STORE_KEY, b.getAttribute("data-push-member")); } catch (err) {}
+          renderPushMemberPicker();
+          refreshPushUI();
+          /* 購読中なら、サーバー側の宛先名も新しい担当で登録し直す。
+             返ってきた端末トークンで保存分も上書きする */
+          pushGetSubscription().then(function (sub) {
+            if (sub) {
+              pushPost("/subscribe", { subscription: sub.toJSON(), member: pushMemberName() })
+                .then(function (data) { if (data && data.token) storePushToken(data.token); })
+                .catch(function () {});
+            }
+          }).catch(function () {});
+        });
         /* リアクションは画面・シートの両方に現れるため document で委譲する */
         document.addEventListener("click", function (e) {
           const rb = e.target.closest("[data-rxn]");
