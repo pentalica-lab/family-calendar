@@ -763,7 +763,7 @@
 
       .tabbar {
         position: fixed; left: 0; right: 0; bottom: 0; z-index: 32;
-        display: grid; grid-template-columns: repeat(6, 1fr);
+        display: grid; grid-template-columns: repeat(7, 1fr);
         background: color-mix(in srgb, var(--bg) 94%, transparent);
         backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
         border-top: 1px solid var(--line);
@@ -772,7 +772,7 @@
       .tab-btn {
         position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center;
         gap: 2px; padding: 5px 0 3px; border-radius: 12px; min-height: 3.1rem !important;
-        color: var(--ink-2); font-size: 0.62rem; font-weight: 700; line-height: 1.15;
+        color: var(--ink-2); font-size: 0.6rem; font-weight: 700; line-height: 1.15;
       }
       .tab-btn svg { width: 23px; height: 23px; flex: none; }
       .tab-btn.active { color: var(--accent); font-weight: 900; }
@@ -986,6 +986,21 @@
         font-weight: 800; font-size: 0.9rem; cursor: pointer;
       }
       .push-test-btn:disabled { opacity: 0.55; }
+
+      /* ---------- お知らせ（一覧ページ／まとめのプレビュー） ---------- */
+      .notice-head { display: flex; align-items: center; gap: 8px; margin: 2px 0 8px; }
+      .notice-head .hub-h3 { margin: 0; flex: 1; }
+      .notice-unread-pill {
+        background: #c53727; color: #fff; font-size: 0.7rem; font-weight: 900;
+        border-radius: 999px; padding: 2px 9px; flex: none;
+      }
+      .notice-more { font-size: 0.8rem; font-weight: 700; color: var(--ink-2); padding-top: 8px; margin: 0; }
+      .notice-day-h { font-size: 0.82rem; font-weight: 900; color: var(--ink-2); margin: 16px 0 6px; }
+      .notice-day-h:first-child { margin-top: 2px; }
+      .notice-meta {
+        display: block; font-size: 0.76rem; font-weight: 700; color: var(--ink-2);
+        margin-top: 2px; line-height: 1.55; overflow-wrap: anywhere;
+      }
     </style>
   </head>
   <body>
@@ -1107,6 +1122,16 @@
         <div id="albumBody"></div>
       </section>
 
+      <!-- ============ お知らせ（一覧ページ） ============ -->
+      <section id="viewNotices" class="hub-view" hidden aria-label="お知らせ">
+        <div class="hub-head">
+          <h2 class="hub-title">お知らせ</h2>
+          <button type="button" class="hub-refresh" data-refresh aria-label="最新の状態に更新" title="最新の状態に更新">↻</button>
+        </div>
+        <p class="hub-sync"><span class="sync-dot"></span><span data-sync-label>家族で共有中</span></p>
+        <div id="noticesBody"></div>
+      </section>
+
       <!-- ============ まとめ（月次サマリー＋お知らせ） ============ -->
       <section id="viewSummary" class="hub-view" hidden aria-label="今月のまとめ">
         <div class="hub-head">
@@ -1117,7 +1142,7 @@
         <div class="sum-card push-card" id="pushCard">
           <h3>プッシュ通知</h3>
           <p class="sum-line" id="pushStatus">状態を確認しています…</p>
-          <p class="sum-line push-note">家族の予定やToDo、成長記録、買い物リストなどが追加・変更されたときに、この端末へ通知します。操作した端末自身には通知は届きません。通知を受け取るには、この端末でONにしてください。変更の通知を送る側は、サインインしていれば自動で送られます（送る側の端末で通知をONにしていなくても届きます）。プッシュが届かなかった変更も、下のお知らせ履歴には残ります。</p>
+          <p class="sum-line push-note">家族の予定やToDo、成長記録、買い物リストなどが追加・変更されたときに、この端末へ通知します。操作した端末自身には通知は届きません。通知を受け取るには、この端末でONにしてください。変更の通知を送る側は、サインインしていれば自動で送られます（送る側の端末で通知をONにしていなくても届きます）。プッシュが届かなかった変更も、「お知らせ」タブの履歴には残ります。</p>
           <button type="button" class="album-open-btn" id="pushToggleBtn">通知をONにする</button>
           <button type="button" class="push-test-btn" id="pushTestBtn" disabled>テスト通知を送る</button>
           <p class="sum-line push-note">「テスト通知を送る」を押すと、家族の他の端末（通知をONにしている端末）にテスト通知が届きます。自分の端末には届きません。</p>
@@ -1146,10 +1171,14 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
           <span>アルバム</span>
         </button>
+        <button type="button" class="tab-btn" data-tab-btn="notices" role="tab" aria-selected="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+          <span>お知らせ</span>
+          <span class="tab-badge" id="tabBadgeNotices" hidden></span>
+        </button>
         <button type="button" class="tab-btn" data-tab-btn="summary" role="tab" aria-selected="false">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
           <span>まとめ</span>
-          <span class="tab-badge" id="tabBadgeSummary" hidden></span>
         </button>
       </nav>
       <button id="fab" class="fab-center" type="button" aria-label="予定を追加">＋</button>
@@ -2693,8 +2722,8 @@
          private拡張プロパティ fh=1 / ft=<種類> が目印で、カレンダー
          表示からは visibleEvents() で除外している。共有カレンダーに
          置くため、夫婦どちらの端末から開いても同じ記録が見える
-         （＝リアルタイム共有の土台）。変更の通知は「まとめ」画面の
-         お知らせ（未読バッジ付き）で代替し、90秒ごとの自動更新で
+         （＝リアルタイム共有の土台）。変更の通知は「お知らせ」タブの
+         一覧（未読バッジ付き）でも確認でき、90秒ごとの自動更新で
          相手の変更を取り込む。
          ・growth: 1件=1イベント。props: child/h/w、メモは本文
          ・todo:   1件=1イベント（期日＝開始日）。props: asg/done/rep
@@ -2879,7 +2908,7 @@
          変更のたびに、プッシュ送信と同時にアプリ内のお知らせ
          履歴にも1件記録する。履歴は家族ハブと同じ共有保存方式
          （fh=1 / ft=notice の専用イベント）で残すため、プッシュを
-         受け取っていない端末でも、後から「まとめ」で同じ履歴を
+         受け取っていない端末でも、後から「お知らせ」タブで同じ履歴を
          確認できる。履歴の保存失敗は変更自体の保存に影響させない。
          ===================================================== */
       /* 予定の日時テキスト。o はフォーム形式・予定形式のどちらでも
@@ -3365,6 +3394,7 @@
         el("viewTodo").hidden = tab !== "todo";
         el("viewShop").hidden = tab !== "shop";
         el("viewAlbum").hidden = tab !== "album";
+        el("viewNotices").hidden = tab !== "notices";
         el("viewSummary").hidden = tab !== "summary";
         if (!cal && !HUB.loaded) loadHubData();
         renderHub();
@@ -3378,6 +3408,7 @@
         else if (HUB.tab === "todo") renderTodo();
         else if (HUB.tab === "shop") renderShop();
         else if (HUB.tab === "album") renderAlbum();
+        else if (HUB.tab === "notices") renderNotices();
         else if (HUB.tab === "summary") renderSummary();
       }
       function updateSyncLabels() {
@@ -3387,11 +3418,11 @@
         document.querySelectorAll("[data-sync-label]").forEach(function (n) { n.textContent = txt; });
       }
       function updateTabBadge() {
-        const badge = el("tabBadgeSummary");
+        const badge = el("tabBadgeNotices");
         if (!badge) return;
         const seen = hubSeenAt();
         const n = activityItems().filter(function (a) { return a.t && a.t > seen && !isOwnNotice(a.id); }).length;
-        badge.hidden = n === 0 || HUB.tab === "summary";
+        badge.hidden = n === 0 || HUB.tab === "notices";
         badge.textContent = n > 9 ? "9+" : String(n);
       }
       function relTime(iso) {
@@ -4049,6 +4080,9 @@
               id: r.id,
               t: r.props.at || r.created || r.updated,
               color: noticeColorOf(r.props.kind),
+              kind: r.props.kind || "",
+              title: r.title || "",
+              memo: r.memo || "",
               text: r.title + (r.memo ? "：" + r.memo : ""),
               actor: r.props.actor || ""
             };
@@ -4102,6 +4136,72 @@
         } catch (e) { console.warn("summary month load failed", e); }
         finally { if (HUB.sumLoading === prefix) HUB.sumLoading = null; }
       }
+      /* =====================================================
+         お知らせ（一覧ページ）
+         共有のお知らせ履歴（ft=notice、保存形式は従来どおり）を
+         新しい順に最大50件、日付ごとにまとめて表示する。各行には
+         変更内容（件名＋日時つき詳細）、発生日時、変更者（記録に
+         ある場合）を出す。未読は開く前の既読時刻で判定して強調し、
+         表示の最後に既読化してタブのバッジを消す
+         ===================================================== */
+      function noticeKindLabel(kind) {
+        return {
+          event: "予定", growth: "成長記録", todo: "ToDo",
+          shop: "買い物", reaction: "リアクション", album: "アルバム"
+        }[kind] || "";
+      }
+      function fmtNoticeDateTime(iso) {
+        if (!iso) return "";
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return "";
+        return fmtDayLabel(dateKey(d)) + " " + fmtTime(d);
+      }
+      function renderNotices() {
+        const body = el("noticesBody");
+        if (!body) return;
+        /* 未読判定は既読化する前に済ませる（この表示での強調が最後） */
+        const seen = hubSeenAt();
+        const acts = activityItems();
+        if (!acts.length) {
+          body.innerHTML = '<p class="hub-empty">お知らせはまだありません。家族が予定・記録・ToDo・買い物リストを変更すると、ここに履歴が残ります。</p>';
+          hubMarkSeen();
+          return;
+        }
+        const today = todayKey();
+        const yesterday = dateKey(addDays(new Date(), -1));
+        let html = "";
+        let curGroup = null;
+        acts.forEach(function (a) {
+          const d = a.t ? new Date(a.t) : null;
+          const valid = d && !isNaN(d.getTime());
+          const gKey = valid ? dateKey(d) : "";
+          if (gKey !== curGroup) {
+            if (curGroup !== null) html += "</div></div>";
+            curGroup = gKey;
+            const label = !valid ? "以前のお知らせ"
+              : (gKey === today ? "今日 ・ " : (gKey === yesterday ? "昨日 ・ " : "")) + fmtDayLabel(gKey);
+            html += '<h3 class="notice-day-h">' + esc(label) + '</h3><div class="sum-card"><div class="activity-list">';
+          }
+          const unread = a.t && a.t > seen && !isOwnNotice(a.id);
+          const meta = [];
+          const when = fmtNoticeDateTime(a.t);
+          if (when) meta.push(when);
+          if (a.actor) meta.push(esc(a.actor) + "さん");
+          const kindLabel = noticeKindLabel(a.kind);
+          if (kindLabel) meta.push(kindLabel);
+          html += '<div class="activity-item' + (unread ? " unread" : "") + '">'
+            + '<span class="activity-dot" style="background:' + a.color + '"></span>'
+            + '<span class="a-main"><span class="a-text">' + esc(a.text) + "</span>"
+            + (meta.length ? '<span class="notice-meta">' + meta.join(" ・ ") + "</span>" : "")
+            + "</span>"
+            + '<span class="a-time">' + esc(relTime(a.t)) + "</span></div>";
+        });
+        if (curGroup !== null) html += "</div></div>";
+        body.innerHTML = html;
+        /* お知らせページを開いたので既読にする（バッジを消す） */
+        hubMarkSeen();
+      }
+
       function renderSummary() {
         const body = el("summaryBody");
         if (!body) return;
@@ -4114,20 +4214,29 @@
         const startKey = prefix + "-01";
         const lastDay = new Date(ym.y, ym.m + 1, 0).getDate();
         const endKey = prefix + "-" + pad2(lastDay);
-        /* お知らせ（未読は開く前に判定して強調表示する） */
+        /* お知らせは最新5件のプレビューだけを出す。全件は「お知らせ」
+           タブの一覧ページで見る形にし、ここでは既読にしない
+           （既読化とバッジ消去はお知らせページを開いたときに行う） */
         const seen = hubSeenAt();
         const acts = activityItems();
-        let html = '<h3 class="hub-h3" style="margin-top:2px">お知らせ</h3><div class="sum-card"><div class="activity-list">';
+        const unreadCount = acts.filter(function (a) { return a.t && a.t > seen && !isOwnNotice(a.id); }).length;
+        let html = '<div class="notice-head"><h3 class="hub-h3">お知らせ</h3>'
+          + (unreadCount ? '<span class="notice-unread-pill">未読 ' + unreadCount + "件</span>" : "")
+          + '<button type="button" class="btn-mini" id="noticeSeeAll">すべて見る</button></div>'
+          + '<div class="sum-card"><div class="activity-list">';
         if (!acts.length) {
           html += '<p class="hub-empty" style="padding:4px 0">お知らせはまだありません</p>';
         }
-        acts.forEach(function (a) {
+        acts.slice(0, 5).forEach(function (a) {
           const unread = a.t && a.t > seen && !isOwnNotice(a.id);
           html += '<div class="activity-item' + (unread ? " unread" : "") + '">'
             + '<span class="activity-dot" style="background:' + a.color + '"></span>'
             + '<span class="a-main"><span class="a-text">' + esc(a.text) + "</span></span>"
             + '<span class="a-time">' + esc(relTime(a.t)) + (a.actor ? " ・ " + esc(a.actor) + "さん" : "") + "</span></div>";
         });
+        if (acts.length > 5) {
+          html += '<p class="notice-more">ほか ' + (acts.length - 5) + ' 件のお知らせがあります</p>';
+        }
         html += "</div></div>";
         /* 月次サマリー */
         let monthEvents;
@@ -4250,8 +4359,8 @@
           HUB.summaryYM = { y: s.y, m: s.m };
           renderSummary();
         });
-        /* お知らせを開いたので既読にする（未読強調はこの表示で最後） */
-        hubMarkSeen();
+        const seeAll = el("noticeSeeAll");
+        if (seeAll) seeAll.addEventListener("click", function () { switchTab("notices"); });
       }
 
       /* =====================================================
